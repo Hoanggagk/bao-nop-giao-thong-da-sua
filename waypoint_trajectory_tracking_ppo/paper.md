@@ -36,7 +36,7 @@ This paper presents a waypoint-trajectory tracking control method for a quadcopt
 
 # 1. INTRODUCTION
 
-Quadcopters are increasingly employed in applications such as infrastructure inspection, smart agriculture, and search-and-rescue missions \[1\]–\[3\]. In these applications, the ability to follow a predefined trajectory is an important requirement for autonomous operation. Nevertheless, quadcopter trajectory-tracking control remains challenging because of nonlinear dynamics, strongly coupled state variables, and underactuation \[4\], \[5\]. A variety of control approaches have been investigated for this problem, including PID and its variants \[6\], LQR \[7\], model predictive control \[8\], sliding-mode control, and robust nonlinear methods \[9\], \[10\]. These approaches can achieve good tracking performance under suitable conditions, but they typically require a dynamic model or a controller-design and parameter-tuning process tailored to each system configuration. Deep reinforcement learning (DRL) provides an alternative paradigm in which the control policy is learned through interactions between an agent and the environment rather than being directly derived from a system model. Recent studies have investigated DRL for quadcopter control and trajectory tracking, including model-free optimal control \[11\], comparisons of model-free algorithms for attitude control and trajectory tracking \[12\], real-time DRL-based control \[13\], and approaches based on DDPG \[14\], \[15\] and SAC \[16\]. Among Actor–Critic algorithms for continuous action spaces, DDPG \[17\], TD3 \[18\], SAC \[19\], and Proximal Policy Optimization (PPO) \[20\] are widely used. Although previous studies have demonstrated the potential of DRL for quadcopter control, the development of a high-level policy for waypoint-sequence tracking must simultaneously address three issues: providing sufficient information about the current target and the local progression direction of the trajectory, designing a sufficiently dense reward signal to guide learning, and separating high-level guidance from low-level dynamic-stabilization loops. Accordingly, this study employs PPO to construct a policy that generates velocity commands along the three NED axes, using a state representation that combines quadcopter motion information with relative errors to the current and next waypoints. The reward function consists of four components that jointly encourage waypoint completion, avoidance of unsafe states, reduction of the distance to the target, and alignment of the velocity direction toward the waypoint. The main contributions of this study are as follows:
+Quadcopters are increasingly employed in applications such as infrastructure inspection, smart agriculture, and search-and-rescue missions \[1\]–\[3\]. In these applications, the ability to follow a predefined trajectory is an important requirement for autonomous operation. Nevertheless, quadcopter trajectory-tracking control remains challenging because of nonlinear dynamics, strongly coupled state variables, and underactuation \[4\], \[5\]. A variety of control approaches have been investigated for this problem, including PID and its variants \[6\], \[22\], LQR \[7\], model predictive control \[8\], sliding-mode control, and robust nonlinear methods \[9\], \[10\]. These approaches can achieve good tracking performance under suitable conditions, but they typically require a dynamic model or a controller-design and parameter-tuning process tailored to each system configuration. Deep reinforcement learning (DRL) provides an alternative paradigm in which the control policy is learned through interactions between an agent and the environment rather than being directly derived from a system model. Recent studies have investigated DRL for quadcopter control and trajectory tracking, including model-free optimal control \[11\], comparisons of model-free algorithms for attitude control and trajectory tracking \[12\], real-time DRL-based control \[13\], and approaches based on DDPG \[14\], \[15\] and SAC \[16\]. Among Actor–Critic algorithms for continuous action spaces, DDPG \[17\], TD3 \[18\], SAC \[19\], and Proximal Policy Optimization (PPO) \[20\] are widely used. Although previous studies have demonstrated the potential of DRL for quadcopter control, the development of a high-level policy for waypoint-sequence tracking must simultaneously address three issues: providing sufficient information about the current target and the local progression direction of the trajectory, designing a sufficiently dense reward signal to guide learning, and separating high-level guidance from low-level dynamic-stabilization loops. Accordingly, this study employs PPO to construct a policy that generates velocity commands along the three NED axes, using a state representation that combines quadcopter motion information with relative errors to the current and next waypoints. The reward function consists of four components that jointly encourage waypoint completion, avoidance of unsafe states, reduction of the distance to the target, and alignment of the velocity direction toward the waypoint. The main contributions of this study are as follows:
 
 - A PPO agent is developed for quadcopter waypoint-trajectory tracking within a hierarchical control architecture, where PPO acts as a high-level controller that generates velocity commands in the NED frame; the 15-dimensional state space combines the vehicle motion state with relative errors to the current and next waypoints.
 
@@ -56,11 +56,11 @@ As shown in Fig. 1, quadcopter motion is described using two coordinate frames: 
 
 # PPO-BASED CONTROLLER DESIGN
 
-Fig. 2 shows the hierarchical control architecture. The PPO agent uses the quadcopter state and reference-trajectory information to generate NED velocity commands, which are executed by the low-level flight-control loops in ProjectAirSim. Position, velocity, Euler angles, and angular velocity are fed back to form a closed-loop system. Agent design comprises the state space, action space, reward function, and an Actor–Critic network that learns the state-to-command mapping.
+Fig. 2 shows the hierarchical control architecture. The PPO agent uses the quadcopter state and reference-trajectory information to generate NED velocity commands, which are executed by the low-level flight-control loops in ProjectAirSim \[23\]. Position, velocity, Euler angles, and angular velocity are fed back to form a closed-loop system. Agent design comprises the state space, action space, reward function, and an Actor–Critic network that learns the state-to-command mapping.
 
 <img src="assets/figures/figure_02.png" style="width:4.90639in;height:2.45833in" />
 
-Fig. 2. Control architecture for quadcopter trajectory tracking..
+Fig. 2. Control architecture for quadcopter trajectory tracking.
 
 ## State Space Design
 
@@ -106,7 +106,7 @@ v_{N}^{\text{cmd}},v_{E}^{\text{cmd}},v_{D}^{\text{cmd}} \in \lbrack - 3.0,3.0\r
 \tag{4}
 $$
 
-This constraint is implemented using the Box class of the Gymnasium library, ensuring that the velocity commands generated by the agent do not exceed the specified range during training and testing. Interactions between the PPO agent and the simulation environment are executed in lock-step mode with a fixed time step Δt = 0.05 s, corresponding to a control frequency $f_{c} = 1\text{/}\Delta t = 20\,\text{Hz}$
+This constraint is implemented using the Box class of the Gymnasium library \[24\], ensuring that the velocity commands generated by the agent do not exceed the specified range during training and testing. Interactions between the PPO agent and the simulation environment are executed in lock-step mode with a fixed time step Δt = 0.05 s, corresponding to a control frequency $f_{c} = 1\text{/}\Delta t = 20\,\text{Hz}$.
 
 ## Reward Function Design
 
@@ -177,7 +177,7 @@ where $v_{t} \in R^{\mathbb{3}}$ denotes the linear velocity vector of the quadc
 
 ## Actor-Critic Network
 
-With the state and action spaces defined, the policy-learning problem can be formulated as a mapping from the 15-dimensional state vector to three velocity commands in the NED frame. This mapping is learned using PPO with an Actor–Critic architecture.The high-level velocity controller is developed using the Proximal Policy Optimization (PPO) algorithm \[20\] with an Actor–Critic architecture. The Actor network maps the current quadcopter state to the desired velocity command, whereas the Critic network estimates the state value to support policy updates.Both the Actor and Critic take the state vector $s_{t} \in R^{15}$defined in section 3.1 as input. Before being fed to the networks, the state components are normalized to reduce the effect of scale differences among the observed variables. Each network contains two fully connected hidden layers, each with 64 neurons and a Tanh activation function.
+With the state and action spaces defined, the policy-learning problem can be formulated as a mapping from the 15-dimensional state vector to three velocity commands in the NED frame. This mapping is learned using the Proximal Policy Optimization (PPO) algorithm \[20\] with an Actor–Critic architecture. The Actor network maps the current quadcopter state to the desired velocity command, whereas the Critic network estimates the state value to support policy updates. Both the Actor and Critic take the state vector $s_{t} \in R^{15}$ defined in Section 3.1 as input. Before being fed to the networks, the state components are normalized to reduce the effect of scale differences among the observed variables. Each network contains two fully connected hidden layers, each with 64 neurons and a Tanh activation function.
 
 # SIMULATION SETUP AND EXPERIMENTAL PARAMETERS
 
@@ -185,7 +185,7 @@ The simulation comprises PPO training and evaluation with fixed learned weights.
 
 1.  **Simulation Environment**
 
-The PPO agent is trained and evaluated in the ProjectAirSim simulation environment. This environment provides a real-time physics model of the quadcopter, enabling simulation of vehicle motion states, sensors, and dynamic interactions in three-dimensional space. In the simulation, the quadcopter has an X configuration with a body mass of approximately 1.0 kg. The propulsion system consists of four symmetrically arranged rotors with a 0.253-m spacing along the two body axes. Each rotor has a diameter of 0.2286 m and a maximum rotational speed of approximately 6396 r/min. Two rotors rotate clockwise and two counterclockwise to balance the overall reaction torque. The aerodynamic and lift parameters are specified according to the ProjectAirSim simulation configuration.
+The PPO agent is trained and evaluated in the ProjectAirSim simulation environment \[23\]. This environment provides a real-time physics model of the quadcopter, enabling simulation of vehicle motion states, sensors, and dynamic interactions in three-dimensional space. In the simulation, the quadcopter has an X configuration with a body mass of approximately 1.0 kg. The propulsion system consists of four symmetrically arranged rotors with a 0.253-m spacing along the two body axes. Each rotor has a diameter of 0.2286 m and a maximum rotational speed of approximately 6396 r/min. Two rotors rotate clockwise and two counterclockwise to balance the overall reaction torque. The aerodynamic and lift parameters are specified according to the ProjectAirSim simulation configuration.
 
 2.  **PPO Training Parameters**
 
@@ -203,7 +203,7 @@ Table I. PPO training parameters
 | Critic learning rate | $1 \times 10^{- 3}$ |
 | Number of update epochs, K | 5 |
 | Discount factor, $\gamma$ | 0.99 |
-| GAE parameter, $\lambda$ | 0.95 |
+| GAE parameter, $\lambda$ \[25\] | 0.95 |
 | Clipping parameter, $\epsilon$ | 0.2 |
 | Initial action standard deviation | 1.0 |
 | Minimum action standard deviation | 0.1 |
@@ -215,7 +215,7 @@ Table I. PPO training parameters
 
 3.  **Reference Method**
 
-Carrot-Following (CF) is the reference method. This look-ahead algorithm guides the quadcopter toward a carrot point ahead on the reference path rather than only toward the next waypoint (Fig. 3).
+Carrot-Following (CF) is the term used throughout this paper for the reference method, which implements the Carrot Chasing principle described in \[21\]. This look-ahead algorithm guides the quadcopter toward a carrot point ahead on the reference path rather than only toward the next waypoint (Fig. 3).
 
 Let $p_{t}$ denote the current quadcopter position and $p_{c}$ the carrot-point position on the reference path. The carrot point is selected at a look-ahead distance L ahead of the current progress position along the path. The direction vector from the quadcopter to the carrot point is then given by
 
@@ -243,18 +243,18 @@ In this study, CF is implemented in ProjectAirSim to follow the same waypoint tr
 
 Control performance is evaluated from two primary perspectives: task-completion efficiency and trajectory-tracking accuracy. Completion time is used to characterize task execution speed, whereas RMSE and MAE quantify the deviation between the actual and reference trajectories. RMSE is more sensitive to large deviations, while MAE represents the average error magnitude over the complete tracking interval.
 
-. Let $p_{k}$ denote the quadcopter position and $p_{k}^{ref}$ the closest point on the piecewise-linear path connecting the waypoints at the $k - th$ sample. The trajectory-tracking error is defined as$e_{k} = \text{|}p_{k} - p_{k}^{ref}\text{|}_{2}$. RMSE and MAE are calculated over the interval from the time the quadcopter reaches the first waypoint until it reaches the final waypoint. The same evaluation procedure is applied to both PPO and the reference method. The RMSE is defined as
+Let $p_{k}$ denote the quadcopter position and $p_{k}^{ref}$ the closest point on the piecewise-linear path connecting the waypoints at the $k - th$ sample. The trajectory-tracking error is defined as $e_{k} = \text{|}p_{k} - p_{k}^{ref}\text{|}_{2}$. RMSE and MAE are calculated over the interval from the time the quadcopter reaches the first waypoint until it reaches the final waypoint. The same evaluation procedure is applied to both PPO and the reference method. The RMSE is defined as
 
 $$
 \text{RMSE} = \sqrt{\frac{1}{N}\sum_{k = 1}^{N}e_{k}^{2}},
-\tag{11}
+\tag{12}
 $$
 
 whereas the MAE is calculated as
 
 $$
-\text{RMSE} = \sqrt{\frac{1}{N}\sum_{k = 1}^{N}e_{k}^{2}},
-\tag{12}
+\text{MAE} = \frac{1}{N}\sum_{k = 1}^{N}\left|e_{k}\right|,
+\tag{13}
 $$
 
 # RESULTS AND DISCUSSION
@@ -335,7 +335,7 @@ Whereas Fig. 5 shows the three-dimensional trajectory shape, Fig. 6 presents the
 
 Fig. 7 shows larger PPO roll and pitch variations, particularly during direction changes, whereas CF produces smoother attitude responses with smaller amplitudes. Yaw remains relatively small for both methods. Thus, faster PPO motion is accompanied by greater attitude variation. Figs. 5–7 present representative runs; Table II reports individual results, means, and standard deviations from ten evaluations per method under the same scenario.
 
-Table 2. Comparison of ppo and carrot-following results
+Table II. Comparison of PPO and Carrot-Following results
 
 | Trial | Method | $\mathbf{T}_{\mathbf{sim}\left( \mathbf{s} \right)}$ | RMSE (m) | MAE (m) | $\mathbf{RMS}\mathbf{E}_{\mathbf{x}}\left( \mathbf{m} \right)$ | $\mathbf{RMS}\mathbf{E}_{\mathbf{y}}\left( \mathbf{m} \right)$ | $\mathbf{RMS}\mathbf{E}_{\mathbf{z}}\left( \mathbf{m} \right)$ |
 |:--:|:--:|:--:|:--:|:--:|:--:|:--:|:--:|
@@ -368,7 +368,7 @@ In terms of completion time, PPO achieves a mean value of 16.91 s, compared with
 
 In addition to the mean values, the standard deviations over ten trials indicate low variability in the PPO metrics. The standard deviation of completion time is 0.04 s for PPO, compared with 0.47 s for CF; the standard deviations of the PPO RMSE and MAE are both 0.001 m, whereas those of CF are 0.002 m. The standard-deviation values are rounded to the number of digits displayed in the table; consequently, values shown as 0.000 should not be interpreted as indicating absolutely zero variability across runs.
 
-1.  **Dicussion**
+2.  **Discussion**
 
 PPO’s lower tracking errors may be associated with its state representation: the current-waypoint error defines the immediate target, while the next-waypoint error indicates the upcoming path direction. This information may help reduce deviations during waypoint transitions. On the helical trajectory, mean RMSE and MAE were 0.082 and 0.072 m for PPO, versus 0.198 and 0.194 m for CF. Without an ablation excluding next-waypoint information, however, its individual contribution cannot be quantified.
 
@@ -396,13 +396,13 @@ Overall, within the investigated simulation environment and scenarios, the resul
 
 1.  M. F. Ahmed, J. C. Mohanta, and M. N. Zafar, “Development of smart quadcopter for autonomous overhead power transmission line inspections,” Mater. Today Proc., vol. 51, pp. 261–268, 2022, doi: 10.1016/j.matpr.2021.05.271.
 
-2.  K. Karam, A. Mansour, M. Khaldi, B. Clement, and M. Ammad Uddin, “Quadcopters in Smart Agriculture: Applications and Mod elling,” Appl. Sci., vol. 14, no. 19, Art. no. 9132, Oct. 2024, doi: 10.3390/app14199132.
+2.  K. Karam, A. Mansour, M. Khaldi, B. Clement, and M. Ammad Uddin, “Quadcopters in Smart Agriculture: Applications and Modelling,” Appl. Sci., vol. 14, no. 19, Art. no. 9132, Oct. 2024, doi: 10.3390/app14199132.
 
-3.  Martinez-Alpiste, G. Golcarenarenji, Q. Wang, and J. M. Alcaraz Calero, “Search and rescue operation using UAVs: A case study,” Expert Syst. Appl., vol. 178, Art. no. 114937, Sep. 2021, doi: 10.1016/j.eswa.2021.114937.
+3.  I. Martinez-Alpiste, G. Golcarenarenji, Q. Wang, and J. M. Alcaraz Calero, “Search and rescue operation using UAVs: A case study,” Expert Syst. Appl., vol. 178, Art. no. 114937, Sep. 2021, doi: 10.1016/j.eswa.2021.114937.
 
-4.  M. A. Abitha and A. Saleem, “Quadrotor Modeling Approaches and Tra jectory Tracking Control Algorithms: A Review,” International Journal of Robotics and Control Systems, vol. 4, no. 1, pp. 401–426, Apr. 2024, doi: 10.31763/ijrcs.v4i1.1324.
+4.  M. A. Abitha and A. Saleem, “Quadrotor Modeling Approaches and Trajectory Tracking Control Algorithms: A Review,” International Journal of Robotics and Control Systems, vol. 4, no. 1, pp. 401–426, Apr. 2024, doi: 10.31763/ijrcs.v4i1.1324.
 
-5.  Abdulkareem, V. Oguntosin, O. M. Popoola, and A. A. Idowu, “Modeling and Nonlinear Control of a Quadcopter for Stabilization and Trajectory Tracking,” J. Eng., vol. 2022, pp. 1–19, Oct. 2022, doi: 10.1155/2022/2449901.
+5.  A. Abdulkareem, V. Oguntosin, O. M. Popoola, and A. A. Idowu, “Modeling and Nonlinear Control of a Quadcopter for Stabilization and Trajectory Tracking,” J. Eng., vol. 2022, pp. 1–19, Oct. 2022, doi: 10.1155/2022/2449901.
 
 6.  M. Rabah, A. Rohan, Y.-J. Han, and S.-H. Kim, “Design of Fuzzy-PID Controller for Quadcopter Trajectory-Tracking,” International Journal of Fuzzy Logic and Intelligent Systems, vol. 18, no. 3, pp. 204–213, Sep. 2018, doi: 10.5391/IJFIS.2018.18.3.204.
 
@@ -412,11 +412,11 @@ Overall, within the investigated simulation environment and scenarios, the resul
 
 9.  D. J. Almakhles, “Robust Backstepping Sliding Mode Control for a Quadrotor Trajectory Tracking Application,” IEEE Access, vol. 8, pp. 5515–5525, 2020, doi: 10.1109/ACCESS.2019.2962722.
 
-10. E. J. J. Smeur, G. C. H. E. De Croon, and Q. Chu, “Cascaded incremental nonlinear dynamic inversion for MAV disturbance re jection,” Control Eng. Pract., vol. 73, pp. 79–90, Apr. 2018, doi: 10.1016/j.conengprac.2018.01.003.
+10. E. J. J. Smeur, G. C. H. E. De Croon, and Q. Chu, “Cascaded incremental nonlinear dynamic inversion for MAV disturbance rejection,” Control Eng. Pract., vol. 73, pp. 79–90, Apr. 2018, doi: 10.1016/j.conengprac.2018.01.003.
 
-11. Q. N. Duong and N. T. Dang, “Model-free Optimal Control for Un deractuated Quadrotor Aircraft via Reinforcement Learning,” Journal of Robotics and Control (JRC), vol. 5, no. 6, pp. 1827–1835, Sep. 2024, doi: 10.18196/jrc.v5i6.23585.
+11. Q. N. Duong and N. T. Dang, “Model-free Optimal Control for Underactuated Quadrotor Aircraft via Reinforcement Learning,” Journal of Robotics and Control (JRC), vol. 5, no. 6, pp. 1827–1835, Sep. 2024, doi: 10.18196/jrc.v5i6.23585.
 
-12. P. Caffyn Yuste, J. A. Iglesias Martínez, and M. A. Sanchis De Miguel, “Simulation-based evaluation of model-free reinforcement learning algorithms for quadcopter attitude control and trajectory track ing,” Neurocomputing, vol. 608, Art. no. 128362, Dec. 2024, doi: 10.1016/j.neucom.2024.128362.
+12. P. Caffyn Yuste, J. A. Iglesias Martínez, and M. A. Sanchis De Miguel, “Simulation-based evaluation of model-free reinforcement learning algorithms for quadcopter attitude control and trajectory tracking,” Neurocomputing, vol. 608, Art. no. 128362, Dec. 2024, doi: 10.1016/j.neucom.2024.128362.
 
 13. T. Y. Trad et al., “Real-Time Implementation of Quadrotor UAV Control System Based on a Deep Reinforcement Learning Approach,” Comput. Mater. Continua, vol. 81, no. 3, pp. 4757–4786, 2024, doi: 10.32604/cmc.2024.055634.
 
@@ -428,10 +428,18 @@ Overall, within the investigated simulation environment and scenarios, the resul
 
 17. T. P. Lillicrap et al., “Continuous Control with Deep Reinforcement Learning,” in Proc. Int. Conf. Learn. Represent. (ICLR), San Juan, Puerto Rico, May 2016.
 
-18. S. Fujimoto, H. van Hoof, and D. Meger, “Addressing Function Approx imation Error in Actor-Critic Methods,” in Proc. 35th Int. Conf. Mach. Learn. (ICML), Stockholm, Sweden, Jul. 2018, pp. 1587–1596.
+18. S. Fujimoto, H. van Hoof, and D. Meger, “Addressing Function Approximation Error in Actor-Critic Methods,” in Proc. 35th Int. Conf. Mach. Learn. (ICML), Stockholm, Sweden, Jul. 2018, pp. 1587–1596.
 
 19. T. Haarnoja, A. Zhou, P. Abbeel, and S. Levine, “Soft Actor-Critic: Off-Policy Maximum Entropy Deep Reinforcement Learning with a Stochastic Actor,” in Proc. 35th Int. Conf. Mach. Learn. (ICML), Stockholm, Sweden, Jul. 2018, pp. 1861–1870.
 
-20. J. Schulman, F. Wolski, P. Dhariwal, A. Radford, and O. Klimov, “Prox imal Policy Optimization Algorithms,” arXiv:1707.06347, Jul. 2017.
+20. J. Schulman, F. Wolski, P. Dhariwal, A. Radford, and O. Klimov, “Proximal Policy Optimization Algorithms,” arXiv:1707.06347, Jul. 2017.
 
-21. H. Pérez-León, J. J. Acevedo, J. A. Millán-Romera, A. Castillejo-Calle, I. Maza, and A. Ollero, “An Aerial Robot Path Follower Based on the ‘Carrot Chasing’ Algorithm,” in Robot 2019: Fourth Iberian Robotics Conference, Advances in Intelligent Systems and Computing, vol. 1092, Springer, 2020, pp. 37–47
+21. H. Pérez-León, J. J. Acevedo, J. A. Millán-Romera, A. Castillejo-Calle, I. Maza, and A. Ollero, “An Aerial Robot Path Follower Based on the ‘Carrot Chasing’ Algorithm,” in Robot 2019: Fourth Iberian Robotics Conference, Advances in Intelligent Systems and Computing, vol. 1092, Springer, 2020, pp. 37–47.
+
+22. K. J. Åström and T. Hägglund, *PID Controllers: Theory, Design, and Tuning*, 2nd ed. Research Triangle Park, NC, USA: ISA, 1995.
+
+23. IAMAI Consulting Corp., “Project AirSim,” GitHub repository. [Online]. Available: https://github.com/iamaisim/ProjectAirSim. [Accessed: Nov. 10, 2026].
+
+24. M. Towers et al., “Gymnasium: A Standard Interface for Reinforcement Learning Environments,” arXiv:2407.17032, Jul. 2024, doi: 10.48550/arXiv.2407.17032.
+
+25. J. Schulman, P. Moritz, S. Levine, M. I. Jordan, and P. Abbeel, “High-Dimensional Continuous Control Using Generalized Advantage Estimation,” in Proc. Int. Conf. Learn. Represent. (ICLR), 2016.

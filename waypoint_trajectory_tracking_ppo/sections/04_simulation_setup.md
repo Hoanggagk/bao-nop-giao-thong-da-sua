@@ -4,7 +4,7 @@ The simulation comprises PPO training and evaluation with fixed learned weights.
 
 1.  **Simulation Environment**
 
-The PPO agent is trained and evaluated in the ProjectAirSim simulation environment. This environment provides a real-time physics model of the quadcopter, enabling simulation of vehicle motion states, sensors, and dynamic interactions in three-dimensional space. In the simulation, the quadcopter has an X configuration with a body mass of approximately 1.0 kg. The propulsion system consists of four symmetrically arranged rotors with a 0.253-m spacing along the two body axes. Each rotor has a diameter of 0.2286 m and a maximum rotational speed of approximately 6396 r/min. Two rotors rotate clockwise and two counterclockwise to balance the overall reaction torque. The aerodynamic and lift parameters are specified according to the ProjectAirSim simulation configuration.
+The PPO agent is trained and evaluated in the ProjectAirSim simulation environment \[23\]. This environment provides a real-time physics model of the quadcopter, enabling simulation of vehicle motion states, sensors, and dynamic interactions in three-dimensional space. In the simulation, the quadcopter has an X configuration with a body mass of approximately 1.0 kg. The propulsion system consists of four symmetrically arranged rotors with a 0.253-m spacing along the two body axes. Each rotor has a diameter of 0.2286 m and a maximum rotational speed of approximately 6396 r/min. Two rotors rotate clockwise and two counterclockwise to balance the overall reaction torque. The aerodynamic and lift parameters are specified according to the ProjectAirSim simulation configuration.
 
 2.  **PPO Training Parameters**
 
@@ -22,7 +22,7 @@ Table I. PPO training parameters
 | Critic learning rate | $1 \times 10^{- 3}$ |
 | Number of update epochs, K | 5 |
 | Discount factor, $\gamma$ | 0.99 |
-| GAE parameter, $\lambda$ | 0.95 |
+| GAE parameter, $\lambda$ \[25\] | 0.95 |
 | Clipping parameter, $\epsilon$ | 0.2 |
 | Initial action standard deviation | 1.0 |
 | Minimum action standard deviation | 0.1 |
@@ -34,7 +34,7 @@ Table I. PPO training parameters
 
 3.  **Reference Method**
 
-Carrot-Following (CF) is the reference method. This look-ahead algorithm guides the quadcopter toward a carrot point ahead on the reference path rather than only toward the next waypoint (Fig. 3).
+Carrot-Following (CF) is the term used throughout this paper for the reference method, which implements the Carrot Chasing principle described in \[21\]. This look-ahead algorithm guides the quadcopter toward a carrot point ahead on the reference path rather than only toward the next waypoint (Fig. 3).
 
 Let $p_{t}$ denote the current quadcopter position and $p_{c}$ the carrot-point position on the reference path. The carrot point is selected at a look-ahead distance L ahead of the current progress position along the path. The direction vector from the quadcopter to the carrot point is then given by
 
@@ -62,16 +62,16 @@ In this study, CF is implemented in ProjectAirSim to follow the same waypoint tr
 
 Control performance is evaluated from two primary perspectives: task-completion efficiency and trajectory-tracking accuracy. Completion time is used to characterize task execution speed, whereas RMSE and MAE quantify the deviation between the actual and reference trajectories. RMSE is more sensitive to large deviations, while MAE represents the average error magnitude over the complete tracking interval.
 
-. Let $p_{k}$ denote the quadcopter position and $p_{k}^{ref}$ the closest point on the piecewise-linear path connecting the waypoints at the $k - th$ sample. The trajectory-tracking error is defined as$e_{k} = \text{|}p_{k} - p_{k}^{ref}\text{|}_{2}$. RMSE and MAE are calculated over the interval from the time the quadcopter reaches the first waypoint until it reaches the final waypoint. The same evaluation procedure is applied to both PPO and the reference method. The RMSE is defined as
+Let $p_{k}$ denote the quadcopter position and $p_{k}^{ref}$ the closest point on the piecewise-linear path connecting the waypoints at the $k - th$ sample. The trajectory-tracking error is defined as $e_{k} = \text{|}p_{k} - p_{k}^{ref}\text{|}_{2}$. RMSE and MAE are calculated over the interval from the time the quadcopter reaches the first waypoint until it reaches the final waypoint. The same evaluation procedure is applied to both PPO and the reference method. The RMSE is defined as
 
 $$
 \text{RMSE} = \sqrt{\frac{1}{N}\sum_{k = 1}^{N}e_{k}^{2}},
-\tag{11}
+\tag{12}
 $$
 
 whereas the MAE is calculated as
 
 $$
-\text{RMSE} = \sqrt{\frac{1}{N}\sum_{k = 1}^{N}e_{k}^{2}},
-\tag{12}
+\text{MAE} = \frac{1}{N}\sum_{k = 1}^{N}\left|e_{k}\right|,
+\tag{13}
 $$

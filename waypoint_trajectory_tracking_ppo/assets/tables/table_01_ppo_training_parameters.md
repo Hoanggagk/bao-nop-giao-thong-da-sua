@@ -10,7 +10,7 @@ Table I. PPO training parameters
 | Critic learning rate | $1 \times 10^{- 3}$ |
 | Number of update epochs, K | 5 |
 | Discount factor, $\gamma$ | 0.99 |
-| GAE parameter, $\lambda$ | 0.95 |
+| GAE parameter, $\lambda$ \[25\] | 0.95 |
 | Clipping parameter, $\epsilon$ | 0.2 |
 | Initial action standard deviation | 1.0 |
 | Minimum action standard deviation | 0.1 |

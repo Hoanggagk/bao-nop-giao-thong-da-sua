@@ -1,4 +1,4 @@
-Table 2. Comparison of ppo and carrot-following results
+Table II. Comparison of PPO and Carrot-Following results
 
 | Trial | Method | $\mathbf{T}_{\mathbf{sim}\left( \mathbf{s} \right)}$ | RMSE (m) | MAE (m) | $\mathbf{RMS}\mathbf{E}_{\mathbf{x}}\left( \mathbf{m} \right)$ | $\mathbf{RMS}\mathbf{E}_{\mathbf{y}}\left( \mathbf{m} \right)$ | $\mathbf{RMS}\mathbf{E}_{\mathbf{z}}\left( \mathbf{m} \right)$ |
 |:--:|:--:|:--:|:--:|:--:|:--:|:--:|:--:|
