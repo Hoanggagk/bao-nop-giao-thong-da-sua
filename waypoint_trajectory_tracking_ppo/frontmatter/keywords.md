@@ -1,1 +1,1 @@
-**Keywords:** Quadcopter, trajectory tracking, waypoint tracking, Proximal Policy Optimization (PPO), reinforcement learning, Carrot-Following.
+**Keywords:** Quadcopter, waypoint trajectory tracking, trajectory tracking control, Proximal Policy Optimization, reinforcement learning, Carrot-Following.

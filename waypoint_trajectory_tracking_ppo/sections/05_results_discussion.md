@@ -1,14 +1,14 @@
 # RESULTS AND DISCUSSION
 
-1.  **Result**
+1.  **Results**
 
-The results cover PPO training, post-training trajectory and attitude responses, and completion time and tracking errors over ten trials against CF. The PPO agent is trained for 500,000 interaction steps in ProjectAirSim (Fig. 4). Reward is initially low because the agent has not learned to approach and complete waypoints sequentially. It increases with training and, from approximately 350,000 steps, fluctuates within a higher-value region with smaller variations. This indicates progressive improvement in task-appropriate velocity commands. Without a separate quantitative convergence criterion, however, Fig. 4 does not establish mathematical convergence.
+Proximal Policy Optimization was trained for 500,000 ProjectAirSim interaction steps (Fig. 4). Reward is initially low because the policy has not learned sequential waypoint completion, then increases and fluctuates within a higher range after approximately 350,000 steps. This pattern indicates improved training return under the adopted configuration. Because no quantitative convergence criterion was used, Fig. 4 does not prove mathematical convergence or show that further training could not alter the policy.
 
 <img src="../assets/figures/figure_04.png" style="width:4.09482in;height:2.96667in" />
 
 Fig. 4. Training results of the PPO agent.
 
-After training, the PPO-agent weights are fixed and the agent is evaluated on a helical trajectory consisting of 40 waypoints with radius r = 1.5 m. In the NED frame, the z coordinate of the trajectory varies from −2.0 m at the initial point to −4.0 m at the final point. CF is used as the reference method. Both methods are evaluated on the same helical trajectory, with the same quadcopter configuration and simulation environment; each method is executed ten times under the same test scenario.
+After training, the policy parameters were frozen. The learned controller and CF were each evaluated ten times on the same helical trajectory, quadcopter, and nominal simulation configuration. These repetitions characterize fixed-controller consistency, not sensitivity to independent training initialization.
 
 <table style="width:99%;">
 <colgroup>
@@ -30,7 +30,7 @@ After training, the PPO-agent weights are fixed and the agent is evaluated on a 
 </tbody>
 </table>
 
-Fig. 5 shows that both methods complete the helical trajectory in the prescribed waypoint order. PPO remains relatively close to the reference path, with the largest deviations mainly where horizontal and vertical motion change simultaneously. CF exhibits larger deviations in several segments, consistent with Table II.
+Both methods completed the waypoints in order (Fig. 5). The learned policy remains close to the reference over most of the helix, with its largest visible deviations where horizontal and vertical motion change simultaneously. CF follows the overall geometry but has larger offsets in several segments, consistent with the aggregate values in Table II. The plots show representative runs; trial-to-trial variation is reported by the table.
 
 <table>
 <colgroup>
@@ -52,7 +52,7 @@ Fig. 5 shows that both methods complete the helical trajectory in the prescribed
 </tbody>
 </table>
 
-Whereas Fig. 5 shows the three-dimensional trajectory shape, Fig. 6 presents the time histories of position to clarify the rate of progression along the trajectory. PPO completes the trajectory in less time than CF under the specified controller parameters. However, because CF uses $v_{ref} = 1.5m\text{/}s$ while PPO can generate each velocity component up to 3 m/s, the difference in completion time should not be attributed solely to an intrinsic advantage of the PPO policy. The timing results should be interpreted together with the tracking errors and the velocity constraints of the two methods.
+Fig. 6 presents position over time and shows faster trajectory progression by the learned policy under the tested settings. CF used $L=0.5$ m and $v_{ref}=1.5m\text{/}s$, whereas the learned policy could use each component up to 3 m/s. Despite common component-wise bounds, the operating speeds were not normalized. The timing difference therefore describes the implemented configurations and is not an intrinsic advantage of the learning algorithm.
 
 <table>
 <colgroup>
@@ -69,14 +69,14 @@ Whereas Fig. 5 shows the three-dimensional trajectory shape, Fig. 6 presents the
 </thead>
 <tbody>
 <tr>
-<td colspan="2" style="text-align: center;">Fig. 7. Attitude responses</td>
+<td colspan="2" style="text-align: center;">Fig. 7. Attitude responses.</td>
 </tr>
 </tbody>
 </table>
 
-Fig. 7 shows larger PPO roll and pitch variations, particularly during direction changes, whereas CF produces smoother attitude responses with smaller amplitudes. Yaw remains relatively small for both methods. Thus, faster PPO motion is accompanied by greater attitude variation. Figs. 5–7 present representative runs; Table II reports individual results, means, and standard deviations from ten evaluations per method under the same scenario.
+The learned policy produced larger roll and pitch variations during direction changes, whereas CF was smoother; yaw remained small for both methods (Fig. 7). Thus, lower geometric trajectory error did not imply a smoother attitude response. Figs. 5–7 are representative runs, while Table II reports all ten evaluations per method.
 
-Table II. Comparison of PPO and Carrot-Following results
+Table II. Comparison of PPO and Carrot-Following results.
 
 | Trial | Method | $\mathbf{T}_{\mathbf{sim}\left( \mathbf{s} \right)}$ | RMSE (m) | MAE (m) | $\mathbf{RMS}\mathbf{E}_{\mathbf{x}}\left( \mathbf{m} \right)$ | $\mathbf{RMS}\mathbf{E}_{\mathbf{y}}\left( \mathbf{m} \right)$ | $\mathbf{RMS}\mathbf{E}_{\mathbf{z}}\left( \mathbf{m} \right)$ |
 |:--:|:--:|:--:|:--:|:--:|:--:|:--:|:--:|
@@ -105,18 +105,20 @@ Table II. Comparison of PPO and Carrot-Following results
 | SD | CF | 0.47 | 0.002 | 0.002 | 0.001 | 0.001 | 0.005 |
 |  | PPO | 0.04 | 0.001 | 0.001 | 0.001 | 0.000 | 0.000 |
 
-In terms of completion time, PPO achieves a mean value of 16.91 s, compared with 24.63 s for CF, corresponding to a difference of approximately 31.3% under the controller configurations used. Because the two methods do not employ the same speed-magnitude limit, this result reflects only the completion times of the implemented configurations and should not be interpreted as a speed-normalized comparison. In terms of trajectory-tracking accuracy, PPO achieves a mean RMSE of 0.082 m and a mean MAE of 0.072 m, lower than the corresponding CF values of 0.198 m and 0.194 m; the respective reductions are approximately 58.6% and 62.9%. A similar trend is observed on each axis: the PPO RMSE_x, RMSE_y, and RMSE_z values are 0.053, 0.047, and 0.041 m, respectively, compared with 0.131, 0.133, and 0.065 m for CF. The corresponding reductions are approximately 59.5%, 64.7%, and 36.9%. Under the investigated conditions, PPO therefore maintains lower tracking errors than CF along all three axes.
+Mean completion times were 16.91 s for PPO and 24.63 s for CF, corresponding to a 31.3% difference under the implemented controller configurations. This numerical comparison is retained because it describes the observed task durations, but its interpretation is limited by the different speed specifications. CF retained a 1.5-m/s reference magnitude, while the learned controller generated independently bounded velocity components. The result is therefore not a speed-normalized comparison and cannot attribute the entire difference to the controller type.
 
-In addition to the mean values, the standard deviations over ten trials indicate low variability in the PPO metrics. The standard deviation of completion time is 0.04 s for PPO, compared with 0.47 s for CF; the standard deviations of the PPO RMSE and MAE are both 0.001 m, whereas those of CF are 0.002 m. The standard-deviation values are rounded to the number of digits displayed in the table; consequently, values shown as 0.000 should not be interpreted as indicating absolutely zero variability across runs.
+For geometric trajectory deviation, PPO achieved mean root-mean-square and mean absolute errors of 0.082 and 0.072 m, compared with 0.198 and 0.194 m for CF. These values correspond to reductions of 58.6% and 62.9% under the tested configuration. The same trend appears in the individual axes. PPO's root-mean-square errors in the $x$, $y$, and $z$ directions were 0.053, 0.047, and 0.041 m, respectively, compared with 0.131, 0.133, and 0.065 m for CF. The corresponding reductions were 59.5%, 64.7%, and 36.9%. Because the reference point for each sample is the closest point on the waypoint polyline, these values quantify spatial proximity to the trajectory geometry; they do not measure whether the vehicle and a timed reference reached corresponding locations simultaneously.
+
+Across ten fixed-controller evaluations, the completion-time standard deviation was 0.04 s for PPO and 0.47 s for CF. Root-mean-square and mean absolute error standard deviations were 0.001 m for PPO and 0.002 m for CF. These values describe nominal repeated execution, not independently trained policies. Values displayed as 0.000 after rounding do not imply exactly zero variation.
 
 2.  **Discussion**
 
-PPO’s lower tracking errors may be associated with its state representation: the current-waypoint error defines the immediate target, while the next-waypoint error indicates the upcoming path direction. This information may help reduce deviations during waypoint transitions. On the helical trajectory, mean RMSE and MAE were 0.082 and 0.072 m for PPO, versus 0.198 and 0.194 m for CF. Without an ablation excluding next-waypoint information, however, its individual contribution cannot be quantified.
+The lower geometric errors obtained by PPO may be associated with the information included in its state representation. The current-waypoint error identifies the immediate target, while the next-waypoint error provides information about the upcoming segment. This combination can make a change in local trajectory direction observable before the current target is completed. Nevertheless, the complete state was used throughout training and evaluation. Without an otherwise identical experiment that removes the next-waypoint components, the specific contribution of those inputs cannot be separated from the effects of the remaining state variables, the reward, and the learned policy.
 
-The reward design may also support tracking. Alongside completion and safety terms, the waypoint-approach reward encourages decreasing target distance and the velocity-alignment reward promotes target-directed motion. These continuous terms provide feedback before waypoint completion and reduce reward sparsity. The experiments assess the complete formulation; the contribution of each term requires an ablation study.
+The approach and alignment rewards provide feedback between discrete waypoint completions. The first is positive when the target distance decreases from one step to the next, and the second is positive when the current velocity has a component toward the waypoint. Together, they make task-related feedback available more frequently than a completion-only formulation. The experiment, however, evaluates only the complete four-term reward. No training runs remove or rescale individual terms, so their separate contributions and the sensitivity to the fixed coefficients remain unquantified.
 
-The lower PPO tracking errors are accompanied by larger roll and pitch variations during direction changes (Fig. 7), suggesting a trade-off between tracking performance and motion smoothness. PPO generates three independently bounded velocity components, whereas CF directs a fixed-magnitude velocity vector toward the carrot point. These differences may partly explain the attitude responses, but no dedicated command-smoothness or attitude-variation metrics were computed. The interpretation therefore remains observational; future evaluation should quantify command variation or attitude rates.
+Lower PPO trajectory deviation coincided with larger visible roll and pitch variations, suggesting a possible trade-off between spatial tracking and motion smoothness. The learned controller generated three independently bounded velocity components, whereas CF directed a fixed-magnitude velocity vector toward a look-ahead point. The controllers also progressed at different rates, which can affect the attitude changes needed to redirect the vehicle. These distinctions offer plausible context for the plotted responses but do not establish a causal explanation. No command-variation, attitude-rate, or smoothness metric was computed, so the comparison remains observational.
 
-Velocity constraints also differ: CF uses a fixed speed magnitude of 1.5 m/s, while each PPO command component lies within \[−3, 3\] m/s. The mean completion times of 16.91 s and 24.63 s therefore describe the implemented configurations and do not establish an intrinsic PPO speed advantage. Equivalent velocity constraints are needed to isolate the control strategy’s effect on completion time.
+The training objective itself also affects the interpretation of task duration. The 400-step episode limit bounds the available time, and the final-waypoint reward increases with the number of remaining steps. The learned policy is therefore explicitly encouraged to complete the sequence early. Combined with CF's fixed 1.5-m/s reference speed and the learned policy's independently bounded components, these design choices prevent attribution of the completion-time difference to Proximal Policy Optimization alone. A controlled timing comparison would require equivalent speed constraints and a protocol that separates the effect of the learned objective from the effect of the guidance strategy.
 
-Evaluation is limited to ProjectAirSim, one helical trajectory, and no explicitly introduced wind or model uncertainty. The repeated trials assess the fixed post-training controller in one scenario, not variability across PPO training seeds. The results support the framework’s feasibility rather than general superiority over conventional methods. Further evaluation should include different trajectory geometries, disturbances, model uncertainties, equivalent velocity constraints, and physical-quadcopter tests.
+Evaluation was limited to ProjectAirSim, one helical trajectory, one fixed set of learned weights, and a nominal configuration without explicitly introduced wind, sensor noise, delay, or model uncertainty. The repeated trials do not cover alternative trajectory shapes, payloads, vehicle parameters, disturbance levels, or training seeds. In addition, the trajectory-deviation metric is geometric rather than time-parameterized, and no physical-quadcopter experiment was conducted. Accordingly, the results support the feasibility of high-level learned velocity guidance for waypoint trajectory tracking in this specific scenario. They do not establish general superiority over conventional methods, robustness to unmodelled conditions, or effectiveness on a real vehicle.

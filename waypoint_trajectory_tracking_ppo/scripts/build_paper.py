@@ -27,7 +27,7 @@ def main() -> None:
         chunks.append(content)
 
     output = PROJECT_ROOT / "paper.md"
-    output.write_text("\n\n".join(chunks) + "\n", encoding="utf-8", newline="\n")
+    output.write_text("\n\n".join(chunks) + "\n", encoding="utf-8")
     print(f"Built {output}")
 
 

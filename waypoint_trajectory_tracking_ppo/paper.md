@@ -30,41 +30,51 @@ Email:vinhhoang2001k60@gmail.com; Tel: 0349418809 (optional)
 
 # Abstract
 
-This paper presents a waypoint-trajectory tracking control method for a quadcopter using Proximal Policy Optimization (PPO) in the ProjectAirSim simulation environment. The PPO agent is constructed using an Actor–Critic architecture and a 15-dimensional state vector comprising the position errors to the current and next waypoints, the quadcopter linear velocity, attitude, and angular velocity; its outputs are velocity commands along the three axes of the North–East–Down (NED) frame. The reward function consists of four components: waypoint-completion reward, safety-violation penalty, waypoint-approach reward, and velocity-alignment reward. After training, the agent weights are fixed and evaluated on a helical trajectory. The Carrot-Following (CF) algorithm is used as a reference method in the same simulation environment and on the same evaluation trajectory. The results show that, under the controller configurations adopted in this study, PPO achieves a shorter completion time and lower trajectory-tracking errors than CF. However, the PPO roll and pitch responses exhibit larger variations at several direction-change instants, indicating a tradeoff between rapid response and motion smoothness. These results demonstrate the feasibility of using a PPO policy to generate high-level velocity commands for waypoint-trajectory tracking in simulation.
+This study investigates Proximal Policy Optimization for waypoint trajectory tracking control of a quadcopter in ProjectAirSim. The learned Actor–Critic policy uses vehicle motion and attitude together with relative errors to the current and next waypoints to generate velocity commands along the North–East–Down axes, while the built-in flight controller provides low-level stabilization. The reward combines waypoint completion, safety, target approach, and velocity alignment. After training, the fixed policy was evaluated against Carrot-Following on a helical waypoint trajectory. Both controllers completed the prescribed waypoint sequence. Proximal Policy Optimization maintained smaller geometric deviations from the waypoint trajectory and completed the task sooner under the tested configurations, although it produced larger roll and pitch variations during changes of direction. The completion-time difference should not be interpreted as an intrinsic advantage because the controller operating speeds were not normalized and the training objective encouraged early completion. Repeated evaluations characterize fixed-controller behavior rather than variation across independent training runs. The findings support the feasibility of learned high-level velocity control for the investigated waypoint trajectory tracking task. They do not establish general superiority, robustness, or real-world effectiveness because the evaluation used one trajectory without explicit disturbances, model uncertainty, or hardware experiments.
 
-**Keywords:** Quadcopter, trajectory tracking, waypoint tracking, Proximal Policy Optimization (PPO), reinforcement learning, Carrot-Following.
+**Keywords:** Quadcopter, waypoint trajectory tracking, trajectory tracking control, Proximal Policy Optimization, reinforcement learning, Carrot-Following.
 
 # 1. INTRODUCTION
 
-Quadcopters are increasingly employed in applications such as infrastructure inspection, smart agriculture, and search-and-rescue missions \[1\]–\[3\]. In these applications, the ability to follow a predefined trajectory is an important requirement for autonomous operation. Nevertheless, quadcopter trajectory-tracking control remains challenging because of nonlinear dynamics, strongly coupled state variables, and underactuation \[4\], \[5\]. A variety of control approaches have been investigated for this problem, including PID and its variants \[6\], \[22\], LQR \[7\], model predictive control \[8\], sliding-mode control, and robust nonlinear methods \[9\], \[10\]. These approaches can achieve good tracking performance under suitable conditions, but they typically require a dynamic model or a controller-design and parameter-tuning process tailored to each system configuration. Deep reinforcement learning (DRL) provides an alternative paradigm in which the control policy is learned through interactions between an agent and the environment rather than being directly derived from a system model. Recent studies have investigated DRL for quadcopter control and trajectory tracking, including model-free optimal control \[11\], comparisons of model-free algorithms for attitude control and trajectory tracking \[12\], real-time DRL-based control \[13\], and approaches based on DDPG \[14\], \[15\] and SAC \[16\]. Among Actor–Critic algorithms for continuous action spaces, DDPG \[17\], TD3 \[18\], SAC \[19\], and Proximal Policy Optimization (PPO) \[20\] are widely used. Although previous studies have demonstrated the potential of DRL for quadcopter control, the development of a high-level policy for waypoint-sequence tracking must simultaneously address three issues: providing sufficient information about the current target and the local progression direction of the trajectory, designing a sufficiently dense reward signal to guide learning, and separating high-level guidance from low-level dynamic-stabilization loops. Accordingly, this study employs PPO to construct a policy that generates velocity commands along the three NED axes, using a state representation that combines quadcopter motion information with relative errors to the current and next waypoints. The reward function consists of four components that jointly encourage waypoint completion, avoidance of unsafe states, reduction of the distance to the target, and alignment of the velocity direction toward the waypoint. The main contributions of this study are as follows:
+Quadcopters are used in tasks such as infrastructure inspection and search-and-rescue operations \[1\], \[2\]. In these applications, autonomous flight may require the vehicle to pass through an ordered set of locations while remaining close to a prescribed trajectory. Reliable waypoint trajectory tracking control is challenging because quadcopters have nonlinear, coupled, and underactuated dynamics \[3\]. Translational motion is produced through changes in attitude and thrust, so a command intended to change motion along one direction can also affect other components of the vehicle response. A waypoint trajectory-tracking controller must therefore coordinate progression toward successive waypoints with the attitude changes required to realize three-dimensional motion.
 
-- A PPO agent is developed for quadcopter waypoint-trajectory tracking within a hierarchical control architecture, where PPO acts as a high-level controller that generates velocity commands in the NED frame; the 15-dimensional state space combines the vehicle motion state with relative errors to the current and next waypoints.
+Model-based and conventional control methods remain important approaches to quadcopter trajectory tracking. Published studies have addressed proportional–integral–derivative control \[4\], model predictive control \[5\], and robust sliding-mode control \[6\]. These methods can provide effective tracking when their models, structures, and parameters are suitable for the vehicle and operating conditions. Their implementation may nevertheless require a model or a controller-design and tuning process adapted to the system. Deep reinforcement learning offers a complementary formulation in which a policy is optimized through interaction with an environment. This formulation does not eliminate design dependence: policy behavior is still shaped by the simulator, observation and action spaces, reward, low-level controller, and training conditions.
 
-- A multi-component reward function is designed to jointly promote waypoint completion, avoidance of unsafe states, reduction of the distance to the current waypoint, and alignment of the velocity direction toward the target.
+Recent quadcopter studies have evaluated model-free reinforcement-learning algorithms for attitude control and trajectory tracking \[7\], examined real-time deep-reinforcement-learning control \[8\], applied Deep Deterministic Policy Gradient to trajectory tracking \[9\], and investigated Soft Actor–Critic for position control \[10\]. These studies show that continuous-control reinforcement learning is relevant to quadcopter guidance and stabilization, while also illustrating that the learned task depends on the selected algorithm and control formulation. Proximal Policy Optimization provides an Actor–Critic approach in which policy updates are constrained by a clipped surrogate objective \[11\]. Motivated by this literature, the present study examines Proximal Policy Optimization as a high-level velocity controller for waypoint trajectory tracking. The study does not claim novelty for the optimization algorithm or for hierarchical flight control itself.
 
-- The PPO agent is evaluated on a helical trajectory using completion time, RMSE, and MAE; ten repeated trials are conducted, and the Carrot-Following (CF) algorithm is used as a reference method in the same simulation environment.
+The investigated formulation addresses three connected design requirements. First, the observation must identify the immediate target while representing how the trajectory continues beyond it. The state therefore contains relative errors to both the current and next waypoints in addition to vehicle motion and attitude variables. Second, waypoint completion alone would provide feedback only at discrete events. The reward consequently combines completion and safety terms with stepwise approach and velocity-alignment terms. Third, directly learning rotor-level stabilization would broaden the learning problem beyond waypoint guidance. The policy instead generates North–East–Down velocity commands, while the built-in flight controller executes the low-level stabilization and actuation required by those commands.
 
-# 2. PROBLEM FORMULATION
+The resulting controller uses a fifteen-dimensional state and produces three continuous velocity-command components. Training is conducted in ProjectAirSim, after which the learned weights are fixed for evaluation. Carrot-Following is implemented as a reference guidance method on the same helical waypoint trajectory. The comparison uses completion time and geometric trajectory-deviation errors, together with trajectory, position, and attitude responses. Because the two controller configurations do not use the same velocity-magnitude specification, the completion-time result is interpreted as a property of the tested configurations rather than as an intrinsic speed advantage of Proximal Policy Optimization.
 
-The control objective is to drive the quadcopter sequentially through the waypoint set $W = \text{\{}w_{1},\ldots,w_{N}\text{\}}$, as illustrated in Fig. 1, in three-dimensional space. The i-th waypoint, $w_{i} = \left\lbrack x_{i},y_{i},z_{i} \right\rbrack^{T}$, and the quadcopter position at time t, $p_{t} = \left\lbrack x_{t},y_{t},z_{t} \right\rbrack^{T}$, are both expressed in the inertial North–East–Down (NED) frame.
+The study makes three contributions. First, it specifies a hierarchical control formulation for waypoint trajectory tracking in which current- and next-waypoint errors are combined with vehicle motion and attitude in the policy state, while the policy outputs velocity commands in the North–East–Down frame (Sections 2 and 3). Second, it defines a four-part reward for waypoint completion, unsafe termination, target approach, and velocity alignment, while avoiding claims about the isolated effect of any component because no reward ablation is available (Section 3). Third, it reports ten repeated evaluations of the fixed learned policy and Carrot-Following on one helical trajectory and interprets the error, timing, and attitude results within the limits of the experimental design (Sections 4 and 5).
+
+The evidence is restricted to one ProjectAirSim trajectory, one fixed set of learned weights, and nominal simulation conditions without explicitly introduced wind, sensor noise, delay, or model uncertainty. The study includes neither hardware experiments nor evaluations across independent training seeds. Its findings therefore support feasibility under the tested conditions but do not establish general superiority, robustness, or real-world effectiveness.
+
+# 2. WAYPOINT TRAJECTORY TRACKING PROBLEM
+
+The control objective is to guide the quadcopter sequentially through the waypoint set $W = \{w_{1},\ldots,w_{N}\}$ in three-dimensional space, as illustrated in Fig. 1. The $i$th waypoint is $w_{i} = [x_{i},y_{i},z_{i}]^{T}$, and the position at control instant $t$ is $p_{t} = [x_{t},y_{t},z_{t}]^{T}$. Both are expressed in the inertial North–East–Down frame. The task is not merely to reach the final location, but to complete the intermediate targets in their prescribed order.
 
 <img src="assets/figures/figure_01.png" style="width:6.11501in;height:2.33333in" />
 
-Fig. 1. Quadcopter waypoint trajectory-tracking problem formulation.
+Fig. 1. Waypoint trajectory tracking control problem for the quadcopter.
 
-As shown in Fig. 1, quadcopter motion is described using two coordinate frames: the inertial frame {I} and the body-fixed frame {B}. The inertial frame describes the vehicle position and flight trajectory in the global space, where the $X_{I},Y_{I}$, and $Z_{I}$ axes correspond to the North, East, and Down directions, respectively. The body-fixed frame is attached to the quadcopter and consists of the $x_{B}$, $y_{B}$, and $z_{B}$ axes, which describe the vehicle motion direction and attitude. At each control instant, one waypoint is designated as the current target. Once the waypoint-completion condition is satisfied, the target is switched to the next waypoint until the entire waypoint sequence has been completed. The control problem is therefore to construct a policy capable of guiding the quadcopter through the waypoint sequence in the prescribed order while maintaining safe flight, reducing trajectory-tracking error, and shortening the completion time subject to the specified control constraints.
+Two coordinate frames describe the motion. The inertial frame $\{I\}$ defines global position, where $X_I$, $Y_I$, and $Z_I$ correspond to North, East, and Down. The body-fixed frame $\{B\}$ is attached to the quadcopter and contains $x_B$, $y_B$, and $z_B$. Vehicle attitude relates the moving frame to the inertial frame, while the waypoints and translational-velocity commands use North–East–Down coordinates.
+
+At each control instant, one waypoint $w_i$ is designated as the current target. The relative position between the quadcopter and this target provides the immediate direction and distance information used by the policy. When the waypoint-completion condition is satisfied, the target index advances from $i$ to $i+1$. This switching process continues until the final waypoint $w_N$ has been reached. The next waypoint is also included in the policy state so that the observation contains information about the local continuation of the trajectory rather than only the current point target.
+
+Under this formulation, a successful controller must satisfy several objectives simultaneously. It must complete the waypoint sequence without triggering the stated termination conditions, remain close to the piecewise-linear path defined by the waypoints, and complete the task within the episode duration. These objectives are related but not identical: a controller can reach every waypoint while deviating between them, and a shorter completion time can be produced by a higher operating speed rather than by a better guidance law. For this reason, the experimental evaluation reports completion time together with geometric trajectory-deviation measures and interprets timing in light of the velocity settings used by each method.
 
 # PPO-BASED CONTROLLER DESIGN
 
-Fig. 2 shows the hierarchical control architecture. The PPO agent uses the quadcopter state and reference-trajectory information to generate NED velocity commands, which are executed by the low-level flight-control loops in ProjectAirSim \[23\]. Position, velocity, Euler angles, and angular velocity are fed back to form a closed-loop system. Agent design comprises the state space, action space, reward function, and an Actor–Critic network that learns the state-to-command mapping.
+Fig. 2 shows the hierarchical architecture used in this study. Proximal Policy Optimization maps vehicle-state and waypoint information to velocity commands in the North–East–Down frame, and ProjectAirSim's low-level flight controller executes these commands \[12\]. The learned policy therefore determines the desired translational motion but does not replace the inner stabilization loops. Position, linear velocity, Euler angles, and angular velocity are returned at the next control instant to close the feedback loop. This division of responsibility makes the policy output directly comparable with the velocity command used by the reference method while retaining the simulator's established mechanism for converting desired motion into vehicle-level actuation.
 
 <img src="assets/figures/figure_02.png" style="width:4.90639in;height:2.45833in" />
 
-Fig. 2. Control architecture for quadcopter trajectory tracking.
+Fig. 2. Control architecture for quadcopter waypoint trajectory tracking.
 
 ## State Space Design
 
-The state space combines trajectory geometry, translational motion, and attitude information. The current-waypoint error specifies the immediate target, while the next-waypoint error indicates the local trajectory direction and supports velocity adjustment between waypoints. The resulting state is the following 15-dimensional vector:
+The state combines trajectory geometry, translational motion, and attitude. The current-waypoint error defines the immediate target, whereas the next-waypoint error represents the local continuation of the trajectory. Including both errors allows the observation to distinguish between vehicle states that may have a similar distance to the current waypoint but lead toward different subsequent segments. The remaining variables describe the motion and orientation with which the vehicle is approaching that local geometry. The resulting fifteen-dimensional state is
 
 $$
 s_{t} = \left\lbrack d_{x}^{i},d_{y}^{i},d_{z}^{i},d_{x}^{i + 1},d_{y}^{i + 1},d_{z}^{i + 1},v_{x},v_{y},v_{z},\phi,\theta,\psi,\dot{\phi},\dot{\theta},\dot{\psi} \right\rbrack^{\text{T}}
@@ -73,44 +83,46 @@ $$
 
 where:
 
-- $d_{x}^{i},d_{y}^{i},d_{z}^{i}$i are the components of the relative position-error vector from the quadcopter to the ith waypoint along the three axes of the NED (North–East–Down) frame, defined by
+- $d_{x}^{i},d_{y}^{i},d_{z}^{i}$ are the NED components of the relative error to waypoint $i$, defined by
 
 $$
-d_{i} = \omega_{i} - p_{t}
+d_{i} = w_{i} - p_{t}
 \tag{2}
 $$
 
-> where $p_{t} = \lbrack x,y,z\rbrack^{T} \in R^{\mathbb{3}}$ denotes the quadcopter position at time $t$, and $\omega_{i} = \left\lbrack x_{w},y_{w},z_{w} \right\rbrack^{T} \in R^{\mathbb{3}}\ $denotes the position of the $i - th$ waypoint;
+where $p_t=[x,y,z]^T\in\mathbb{R}^3$ is the quadcopter position and $w_i=[x_w,y_w,z_w]^T\in\mathbb{R}^3$ is waypoint $i$;
 
-- $d_{x}^{i + 1},d_{y}^{i + 1},d_{z}^{i + 1}$ are the components of the relative position-error vector from the quadcopter to the $(i + 1) - th$ waypoint;
+- $d_{x}^{i+1},d_{y}^{i+1},d_{z}^{i+1}$ are the error components to waypoint $i+1$ and provide information about the trajectory beyond the current target;
 
-- $v_{x},v_{y},v_{z}\ $are the components of the quadcopter linear velocity along the three coordinate axes;
+- $v_x,v_y,v_z$ are the NED linear-velocity components;
 
-- $\phi,\ \theta,\ \psi$ denote the roll, pitch, and yaw angles, respectively, describing the quadcopter attitude at time $t$;
+- $\phi,\theta,\psi$ are roll, pitch, and yaw;
 
-- $\dot{\phi},\dot{\theta},\ \dot{\psi}$ denote the angular velocities about the roll, pitch, and yaw axes, respectively.
+- $\dot{\phi},\dot{\theta},\dot{\psi}$ are the corresponding angular velocities.
+
+All position errors and linear velocities in (1) use the same inertial coordinates as the waypoints and actions. The attitude terms add the vehicle's rotational condition. The effect of the next-waypoint inputs is not isolated; it would require an otherwise identical policy trained without them.
 
 ## Action Space Design
 
-The PPO agent provides high-level guidance through velocity commands, while the flight controller retains the dynamic-stabilization loops. The continuous action space therefore comprises three components:
+Proximal Policy Optimization provides high-level velocity guidance while the ProjectAirSim flight controller stabilizes the vehicle. A three-dimensional continuous action is used because trajectory progression requires simultaneous motion in the North, East, and Down directions. The action at time $t$ is
 
 $$
 a_{t} = \left\lbrack v_{N}^{\text{cmd}},v_{E}^{\text{cmd}},v_{D}^{\text{cmd}} \right\rbrack^{\text{T}}
 \tag{3}
 $$
 
-where $v_{N}^{\text{cmd}},v_{E}^{\text{cmd}},v_{D}^{\text{cmd}}$ denote the commanded velocities along the North, East, and Down axes of the NED coordinate frame, respectively. The three action components correspond to the desired velocity commands in the North, East, and Down directions of the NED frame. The PPO policy does not directly issue thrust, control-moment, or individual-rotor-speed commands; instead, the velocity commands are passed to the flight controller integrated in ProjectAirSim for attitude stabilization and conversion into low-level control actions. Accordingly, PPO is treated as a high-level velocity-command policy. To ensure that the control signals remain within a suitable range, each action component is constrained by
+where $v_N^{\text{cmd}},v_E^{\text{cmd}},v_D^{\text{cmd}}$ are the North, East, and Down commands. PPO does not command thrust, moments, or rotor speeds; ProjectAirSim converts its velocity commands into low-level actions. Each component is constrained by
 
 $$
 v_{N}^{\text{cmd}},v_{E}^{\text{cmd}},v_{D}^{\text{cmd}} \in \lbrack - 3.0,3.0\rbrack\,\text{m/s}
 \tag{4}
 $$
 
-This constraint is implemented using the Box class of the Gymnasium library \[24\], ensuring that the velocity commands generated by the agent do not exceed the specified range during training and testing. Interactions between the PPO agent and the simulation environment are executed in lock-step mode with a fixed time step Δt = 0.05 s, corresponding to a control frequency $f_{c} = 1\text{/}\Delta t = 20\,\text{Hz}$.
+The Gymnasium Box space \[13\] defines these component-wise action bounds during training and testing. The bounds restrict each coordinate but do not impose a fixed magnitude on the three-dimensional velocity vector, a distinction relevant to comparison with Carrot-Following. Lock-step interaction uses $\Delta t=0.05$ s, corresponding to 20 Hz.
 
 ## Reward Function Design
 
-The reward function promotes waypoint completion and safe flight while providing continuous feedback between waypoints. To reduce the sparsity of a completion-only reward, waypoint-approach and velocity-alignment terms are combined with the completion reward and safety penalty:
+The reward combines completion and safety terms with dense approach and velocity-alignment feedback. A completion-only reward would be received at relatively few instants, whereas the two dense terms provide a stepwise indication of whether the motion is progressing toward the current target. The complete reward is
 
 $$
 R_{sum} = r_{waypoint} + r_{penalty} + r_{approach} + r_{align}
@@ -119,77 +131,83 @@ $$
 
 where:
 
-- $R_{\text{sum}}$ is the total reward at time t;
+- $R_{\text{sum}}$ is the reward at time $t$;
 
-- $r_{\text{waypoint}}$ and $r_{\text{penalty}}$ are the reward for waypoint completion and the penalty for violating a safety condition, respectively;
+- $r_{\text{waypoint}}$ and $r_{\text{penalty}}$ represent completion and safety violation;
 
-- $r_{\text{approach}}$ is the waypoint-approach reward, which encourages the quadcopter to reduce its distance to the current waypoint;
+- $r_{\text{approach}}$ rewards decreasing target distance;
 
-- $r_{\text{align}}$ is a continuous reward that encourages the quadcopter to maintain a velocity direction aligned with the direction from its current position to the waypoint..
+- $r_{\text{align}}$ rewards velocity directed toward the target.
 
 **Waypoint-Completion Reward**
 
-To encourage the quadcopter to complete the waypoints in the prescribed order along the reference trajectory, the reward is defined as follows:
+The completion reward is
 
 $$
-r_{waypoint} = \left\{ \begin{array}{r}
-10\ if\ d\left( p_{t},w_{i} \right) < \epsilon\ and\ i < n\  \\
-15 + 15*\frac{T_{\max} - t}{T_{\max}}\ \ \ if\ d\left( p_{t},w_{i} \right) < \epsilon\ and\ i = n\  \\
-0\ otherwise
-\end{array} \right.\
+r_{waypoint}=\begin{cases}
+10, & d(p_t,w_i)<r_w\text{ and }i<N,\\
+15+15\dfrac{T_{\max}-t}{T_{\max}}, & d(p_t,w_i)<r_w\text{ and }i=N,\\
+0, & \text{otherwise}.
+\end{cases}
 \tag{6}
 $$
 
-where $p_{t} \in R^{\mathbb{3}}$is the quadcopter position at time t, $\omega_{i} \in R^{\mathbb{3}}$ is the $i - th$ waypoint, $T_{\max}$ is the maximum number of steps in an episode, $r_{w} = 0.2\ m$ is the radius used to determine waypoint completion, and $\left( p_{t},\omega_{i} \right) = \text{|}p_{t} - \omega_{i}\text{|}_{2}$ is the Euclidean distance between the quadcopter and the target waypoint. The target waypoint is considered reached when $d\left( p_{t},\omega_{i} \right) < r_{w}$. Upon reaching an intermediate waypoint, the agent receives a positive reward. If the final waypoint is completed before the maximum number of episode steps is reached, the agent receives an additional reward that depends on the number of remaining time steps.
+Here, $d(p_t,w_i)=\lVert p_t-w_i\rVert_2$, $r_w=0.2$ m is the completion radius, and $T_{\max}$ is the episode limit. Intermediate waypoints receive 10 and cause the target index to advance. Final completion receives a base reward of 15 plus a term proportional to the remaining episode steps. Consequently, the terminal reward represents both completion of the entire ordered waypoint set and earlier completion within the episode limit. This time-dependent term is part of the trained objective and must be considered when completion time is interpreted later.
 
 **Safety-Violation Penalty**
 
-At each time step, if the episode terminates prematurely because the quadcopter collides with the ground, overturns, or moves excessively far from the target waypoint, the agent receives a large negative penalty:
+Premature termination due to ground collision, overturning, or excessive waypoint deviation receives
 
 $$
 r_{\text{penalty}} = - 30
 \tag{7}
 $$
 
-This mechanism acts as a safety constraint that encourages the quadcopter to avoid hazardous conditions, such as ground collisions, excessive roll or pitch angles $|\phi|$ or $|\theta| > \pi\text{/}2$, or excessive deviation from the target waypoint. Applying the same large penalty to these hazardous events emphasizes that any condition leading to premature episode termination is undesirable and should be avoided during flight. If no hazardous event occurs, the training process proceeds to evaluate the waypoint-completion condition.
+The angular termination condition is $|\phi|>\pi/2$ or $|\theta|>\pi/2$. The same penalty is applied to each terminating safety event, so the formulation does not assign separate severities to collision, overturning, and excessive waypoint deviation. Instead, it marks all three as outcomes that prematurely end the episode and should be avoided. The numerical threshold for excessive waypoint deviation is not specified in the available manuscript material and is therefore not introduced here.
 
 **Waypoint-Approach Reward**
 
 The waypoint-approach reward $r_{\text{approach}}$ is defined as
 
 $$
-r_{approach} = max\left\lbrack 0\ ,\ 5.0*\left( d(p_{t - 1},\omega_{i}) - d(p_{t},\omega_{i}) \right) \right\rbrack
+r_{approach}=\max\left[0,5.0\left(d(p_{t-1},w_i)-d(p_t,w_i)\right)\right]
 \tag{8}
 $$
 
-where $d\left( p_{t - 1},\omega_{i} \right)$ and $d\left( p_{t},\omega_{i} \right)\ $denote the distances from the quadcopter to the $i - th$ waypoint at time steps $t - 1$ and $t$, respectively. This reward is designed to encourage the quadcopter to reduce its distance to the current waypoint at each time step. Accordingly, the agent receives a positive reward when the distance to the current waypoint decreases relative to the previous time step; otherwise, the reward is zero when the quadcopter does not move closer to the waypoint.
+This term is positive only when the distance to waypoint $i$ decreases between consecutive steps. If the distance is unchanged or increases, the maximum operation sets the term to zero rather than adding a separate negative penalty. The reward therefore distinguishes progress from non-progress while the completion and safety terms retain their separate roles.
 
 **Velocity-Alignment Reward**
 
-The velocity-alignment reward $r_{\text{align}}$ encourages the quadcopter to maintain its direction of motion aligned with the direction from its current position toward the target waypoint. It is defined as
+The velocity-alignment reward is
 
 $$
-r_{align} = \max\left( 0,0.2 \cdot v_{t} \cdot \frac{\omega_{i} - p_{t}}{d\left( p_{t},w_{i} \right)} \right)
+r_{align}=\max\left(0,0.2\,v_t\cdot\frac{w_i-p_t}{d(p_t,w_i)}\right)
 \tag{9}
 $$
 
-where $v_{t} \in R^{\mathbb{3}}$ denotes the linear velocity vector of the quadcopter at time $t$. The reward is determined by the dot product between the velocity vector and the unit vector pointing toward the target waypoint. This component takes a positive value when the velocity vector has a component directed toward the waypoint, corresponding to an angle of less than $90^{\circ}$ between the two vectors. When the quadcopter moves perpendicular to or away from the waypoint, the reward is zero.
+where $v_t\in\mathbb{R}^3$. The fraction in (9) is the unit vector directed from the current position to waypoint $i$. Its dot product with $v_t$ is positive when the quadcopter velocity contains a component toward the waypoint. Motion perpendicular to the target direction produces a zero dot product, and motion away from the target is removed by the maximum operation. Unlike the approach term, which compares two consecutive distances, the alignment term evaluates the instantaneous relationship between velocity and target direction.
+
+The fixed coefficients in (6)–(9) establish the relative scales of discrete completion, unsafe termination, stepwise progress, and target-directed motion. Because every training run uses the complete reward, the influence of an individual component cannot be claimed without ablation.
 
 ## Actor-Critic Network
 
-With the state and action spaces defined, the policy-learning problem can be formulated as a mapping from the 15-dimensional state vector to three velocity commands in the NED frame. This mapping is learned using the Proximal Policy Optimization (PPO) algorithm \[20\] with an Actor–Critic architecture. The Actor network maps the current quadcopter state to the desired velocity command, whereas the Critic network estimates the state value to support policy updates. Both the Actor and Critic take the state vector $s_{t} \in R^{15}$ defined in Section 3.1 as input. Before being fed to the networks, the state components are normalized to reduce the effect of scale differences among the observed variables. Each network contains two fully connected hidden layers, each with 64 neurons and a Tanh activation function.
+Proximal Policy Optimization \[11\] uses an Actor–Critic architecture to learn the continuous control policy. The Actor represents the mapping from the current observation to the three velocity-command components, whereas the Critic estimates the value of the observed state to support policy updates. Both networks receive the normalized state $s_t\in\mathbb{R}^{15}$ and contain two fully connected hidden layers with 64 neurons per layer and Tanh activation functions. The Actor output is associated with the three commands in (3), and the Critic produces a scalar state-value estimate.
+
+State normalization reduces scale differences among position error, velocity, attitude, and angular velocity. The available record does not specify its statistics or update rule; these details are therefore not inferred.
 
 # SIMULATION SETUP AND EXPERIMENTAL PARAMETERS
 
-The simulation comprises PPO training and evaluation with fixed learned weights. Trajectory completion, completion time, and tracking error are assessed against Carrot-Following (CF) \[21\] in the same environment.
+Proximal Policy Optimization is trained in simulation and then evaluated with fixed weights against Carrot-Following (CF) \[14\]. Both controllers use the same quadcopter model and waypoint trajectory. The test trials do not update the learned parameters.
 
 1.  **Simulation Environment**
 
-The PPO agent is trained and evaluated in the ProjectAirSim simulation environment \[23\]. This environment provides a real-time physics model of the quadcopter, enabling simulation of vehicle motion states, sensors, and dynamic interactions in three-dimensional space. In the simulation, the quadcopter has an X configuration with a body mass of approximately 1.0 kg. The propulsion system consists of four symmetrically arranged rotors with a 0.253-m spacing along the two body axes. Each rotor has a diameter of 0.2286 m and a maximum rotational speed of approximately 6396 r/min. Two rotors rotate clockwise and two counterclockwise to balance the overall reaction torque. The aerodynamic and lift parameters are specified according to the ProjectAirSim simulation configuration.
+Training and evaluation use ProjectAirSim \[12\], which supplies the simulated vehicle dynamics and the state information used in the feedback loop. In the X-configuration quadcopter model, the central frame link is configured with a mass of 1.0 kg, and the four rotor positions are located symmetrically at $\pm 0.253$ m along the body axes. The propeller diameter is 0.2286 m, and the maximum rotor speed is approximately 6396 r/min. Opposing rotor pairs counter-rotate to balance reaction torque in the simulated configuration.
+
+ProjectAirSim's built-in flight controller converts North–East–Down velocity commands into low-level actions. The same interface is used by both methods, so the comparison concerns high-level guidance rather than the internal stabilization loops. No wind, sensor noise, delay, or model uncertainty is explicitly introduced; the experiment therefore does not test disturbance rejection or transfer to a physical vehicle.
 
 2.  **PPO Training Parameters**
 
-The main training parameters of the PPO controller are summarized in Table I.
+Table I summarizes the reported training parameters. Training comprises 500,000 interaction steps. The 0.05-s control period and 400-step limit give a maximum episode duration of 20 s. An episode can end earlier after final completion or a terminating safety event.
 
 Table I. PPO training parameters
 
@@ -203,7 +221,7 @@ Table I. PPO training parameters
 | Critic learning rate | $1 \times 10^{- 3}$ |
 | Number of update epochs, K | 5 |
 | Discount factor, $\gamma$ | 0.99 |
-| GAE parameter, $\lambda$ \[25\] | 0.95 |
+| GAE parameter, $\lambda$ \[15\] | 0.95 |
 | Clipping parameter, $\epsilon$ | 0.2 |
 | Initial action standard deviation | 1.0 |
 | Minimum action standard deviation | 0.1 |
@@ -215,59 +233,61 @@ Table I. PPO training parameters
 
 3.  **Reference Method**
 
-Carrot-Following (CF) is the term used throughout this paper for the reference method, which implements the Carrot Chasing principle described in \[21\]. This look-ahead algorithm guides the quadcopter toward a carrot point ahead on the reference path rather than only toward the next waypoint (Fig. 3).
+CF implements the Carrot Chasing principle in \[14\]. It selects a look-ahead carrot point on the reference path and directs the velocity command toward that point. As path progress changes, the point moves forward and provides a continuously changing local target (Fig. 3).
 
-Let $p_{t}$ denote the current quadcopter position and $p_{c}$ the carrot-point position on the reference path. The carrot point is selected at a look-ahead distance L ahead of the current progress position along the path. The direction vector from the quadcopter to the carrot point is then given by
+Let $p_{t}$ denote the current quadcopter position and $p_{c}$ the carrot-point position on the reference path. The carrot point is selected at a look-ahead distance $L = 0.5$ m ahead of the current progress position along the path. The direction vector from the quadcopter to the carrot point is then given by
 
 $$
 d_{c} = p_{c} - p_{t}
 \tag{10}
 $$
 
-From this vector, the desired velocity direction is defined from the current quadcopter position toward the carrot point. For a reference speed magnitude v_ref, the CF velocity vector is expressed as
+For reference-speed magnitude $v_{ref}$, the command direction points from the vehicle to the carrot point:
 
 $$
-v_{CF} = v_{ref}\left( p_{c} - p_{t} \right)\text{/}\left| \left| p_{c} - p_{t} \right| \right|^{2}
+v_{CF}=v_{ref}\frac{p_c-p_t}{\lVert p_c-p_t\rVert_2}
 \tag{11}
 $$
 
-As the quadcopter moves, its progress position on the reference path is continuously updated and the carrot point advances along the path. Consequently, the direction of $v_{CF}$ is adjusted according to the local path geometry. The look-ahead mechanism provides a continuous transition between consecutive waypoint segments. Fig. 3 illustrates the heading-error angle $\theta_{e}$ between the current motion direction and the direction to the carrot point; this quantity is used to illustrate the geometric relationship in the path-following process, whereas the velocity-generation law used in this study is defined by the vector from the current position to the carrot point, as given in (11).
+Equation (11) normalizes the displacement and scales the unit direction by $v_{ref}$, so the command direction changes with the local path geometry. The angle $\theta_e$ in Fig. 3 only illustrates the geometric relationship and is not an input to (11).
 
 <img src="assets/figures/figure_03.png" style="width:5.58873in;height:4.33283in" />
 
-Fig. 3. Principle of the Carrot-Following path-following algorithm.
+Fig. 3. CF geometry; $\theta_e$ is illustrative and is not used in (11).
 
-In this study, CF is implemented in ProjectAirSim to follow the same waypoint trajectory used for PPO evaluation. The CF reference-speed magnitude is set to $v_{ref}$ = 1.5 m/s. PPO and CF use the same helical trajectory, quadcopter configuration, and simulation environment. However, PPO constrains each velocity-command component to \[−3, 3\] m/s, whereas CF uses a fixed reference-speed magnitude of 1.5 m/s. Therefore, the completion-time results reflect the performance of the two controller configurations as implemented in this study and should not be interpreted as a speed-normalized comparison under an identical velocity limit. The tracking-error metrics are computed using the same rule for both methods.
+The evaluation trajectory contains 40 helical waypoints with a radius of 1.5 m, and its North–East–Down $z$ coordinate changes from −2.0 to −4.0 m. CF uses $L=0.5$ m and $v_{ref}=1.5$ m/s in every trial.
+
+Both methods use component-wise North–East–Down bounds of \[−3, 3\] m/s. CF nevertheless retains a 1.5-m/s reference magnitude, while the learned policy can produce independently bounded components. The shared hard bounds do not normalize the operating speeds, so completion time cannot isolate controller effects. The same geometric error calculation is used for both methods.
 
 4.  **Evaluation Metrics**
 
-Control performance is evaluated from two primary perspectives: task-completion efficiency and trajectory-tracking accuracy. Completion time is used to characterize task execution speed, whereas RMSE and MAE quantify the deviation between the actual and reference trajectories. RMSE is more sensitive to large deviations, while MAE represents the average error magnitude over the complete tracking interval.
+Completion time describes the duration from the start of the evaluated waypoint interval to completion of the final waypoint. Root-mean-square error and mean absolute error describe the magnitude of geometric trajectory deviation. The root-mean-square measure gives greater weight to larger deviations because errors are squared before averaging, whereas the mean absolute measure provides the average deviation magnitude in the original unit.
 
-Let $p_{k}$ denote the quadcopter position and $p_{k}^{ref}$ the closest point on the piecewise-linear path connecting the waypoints at the $k - th$ sample. The trajectory-tracking error is defined as $e_{k} = \text{|}p_{k} - p_{k}^{ref}\text{|}_{2}$. RMSE and MAE are calculated over the interval from the time the quadcopter reaches the first waypoint until it reaches the final waypoint. The same evaluation procedure is applied to both PPO and the reference method. The RMSE is defined as
+Let $p_k$ be the vehicle position and $p_k^{ref}$ the closest point on the piecewise-linear path connecting the waypoints at sample $k$. The geometric error is $e_k=\lVert p_k-p_k^{ref}\rVert_2$. This definition measures the shortest spatial deviation from the waypoint trajectory, independently of which point a time-parameterized reference would occupy at the same instant. It therefore evaluates geometric waypoint trajectory tracking rather than synchronization with a timed reference. Over $M$ samples from the first to final waypoint, the measures are computed as
 
 $$
-\text{RMSE} = \sqrt{\frac{1}{N}\sum_{k = 1}^{N}e_{k}^{2}},
+\text{RMSE}=\sqrt{\frac{1}{M}\sum_{k=1}^{M}e_k^2},
 \tag{12}
 $$
 
-whereas the MAE is calculated as
+and
 
 $$
-\text{MAE} = \frac{1}{N}\sum_{k = 1}^{N}\left|e_{k}\right|,
+\text{MAE}=\frac{1}{M}\sum_{k=1}^{M}|e_k|,
 \tag{13}
 $$
 
 # RESULTS AND DISCUSSION
 
-1.  **Result**
+1.  **Results**
 
-The results cover PPO training, post-training trajectory and attitude responses, and completion time and tracking errors over ten trials against CF. The PPO agent is trained for 500,000 interaction steps in ProjectAirSim (Fig. 4). Reward is initially low because the agent has not learned to approach and complete waypoints sequentially. It increases with training and, from approximately 350,000 steps, fluctuates within a higher-value region with smaller variations. This indicates progressive improvement in task-appropriate velocity commands. Without a separate quantitative convergence criterion, however, Fig. 4 does not establish mathematical convergence.
+Proximal Policy Optimization was trained for 500,000 ProjectAirSim interaction steps (Fig. 4). Reward is initially low because the policy has not learned sequential waypoint completion, then increases and fluctuates within a higher range after approximately 350,000 steps. This pattern indicates improved training return under the adopted configuration. Because no quantitative convergence criterion was used, Fig. 4 does not prove mathematical convergence or show that further training could not alter the policy.
 
 <img src="assets/figures/figure_04.png" style="width:4.09482in;height:2.96667in" />
 
 Fig. 4. Training results of the PPO agent.
 
-After training, the PPO-agent weights are fixed and the agent is evaluated on a helical trajectory consisting of 40 waypoints with radius r = 1.5 m. In the NED frame, the z coordinate of the trajectory varies from −2.0 m at the initial point to −4.0 m at the final point. CF is used as the reference method. Both methods are evaluated on the same helical trajectory, with the same quadcopter configuration and simulation environment; each method is executed ten times under the same test scenario.
+After training, the policy parameters were frozen. The learned controller and CF were each evaluated ten times on the same helical trajectory, quadcopter, and nominal simulation configuration. These repetitions characterize fixed-controller consistency, not sensitivity to independent training initialization.
 
 <table style="width:99%;">
 <colgroup>
@@ -289,7 +309,7 @@ After training, the PPO-agent weights are fixed and the agent is evaluated on a 
 </tbody>
 </table>
 
-Fig. 5 shows that both methods complete the helical trajectory in the prescribed waypoint order. PPO remains relatively close to the reference path, with the largest deviations mainly where horizontal and vertical motion change simultaneously. CF exhibits larger deviations in several segments, consistent with Table II.
+Both methods completed the waypoints in order (Fig. 5). The learned policy remains close to the reference over most of the helix, with its largest visible deviations where horizontal and vertical motion change simultaneously. CF follows the overall geometry but has larger offsets in several segments, consistent with the aggregate values in Table II. The plots show representative runs; trial-to-trial variation is reported by the table.
 
 <table>
 <colgroup>
@@ -311,7 +331,7 @@ Fig. 5 shows that both methods complete the helical trajectory in the prescribed
 </tbody>
 </table>
 
-Whereas Fig. 5 shows the three-dimensional trajectory shape, Fig. 6 presents the time histories of position to clarify the rate of progression along the trajectory. PPO completes the trajectory in less time than CF under the specified controller parameters. However, because CF uses $v_{ref} = 1.5m\text{/}s$ while PPO can generate each velocity component up to 3 m/s, the difference in completion time should not be attributed solely to an intrinsic advantage of the PPO policy. The timing results should be interpreted together with the tracking errors and the velocity constraints of the two methods.
+Fig. 6 presents position over time and shows faster trajectory progression by the learned policy under the tested settings. CF used $L=0.5$ m and $v_{ref}=1.5m\text{/}s$, whereas the learned policy could use each component up to 3 m/s. Despite common component-wise bounds, the operating speeds were not normalized. The timing difference therefore describes the implemented configurations and is not an intrinsic advantage of the learning algorithm.
 
 <table>
 <colgroup>
@@ -328,14 +348,14 @@ Whereas Fig. 5 shows the three-dimensional trajectory shape, Fig. 6 presents the
 </thead>
 <tbody>
 <tr>
-<td colspan="2" style="text-align: center;">Fig. 7. Attitude responses</td>
+<td colspan="2" style="text-align: center;">Fig. 7. Attitude responses.</td>
 </tr>
 </tbody>
 </table>
 
-Fig. 7 shows larger PPO roll and pitch variations, particularly during direction changes, whereas CF produces smoother attitude responses with smaller amplitudes. Yaw remains relatively small for both methods. Thus, faster PPO motion is accompanied by greater attitude variation. Figs. 5–7 present representative runs; Table II reports individual results, means, and standard deviations from ten evaluations per method under the same scenario.
+The learned policy produced larger roll and pitch variations during direction changes, whereas CF was smoother; yaw remained small for both methods (Fig. 7). Thus, lower geometric trajectory error did not imply a smoother attitude response. Figs. 5–7 are representative runs, while Table II reports all ten evaluations per method.
 
-Table II. Comparison of PPO and Carrot-Following results
+Table II. Comparison of PPO and Carrot-Following results.
 
 | Trial | Method | $\mathbf{T}_{\mathbf{sim}\left( \mathbf{s} \right)}$ | RMSE (m) | MAE (m) | $\mathbf{RMS}\mathbf{E}_{\mathbf{x}}\left( \mathbf{m} \right)$ | $\mathbf{RMS}\mathbf{E}_{\mathbf{y}}\left( \mathbf{m} \right)$ | $\mathbf{RMS}\mathbf{E}_{\mathbf{z}}\left( \mathbf{m} \right)$ |
 |:--:|:--:|:--:|:--:|:--:|:--:|:--:|:--:|
@@ -364,82 +384,64 @@ Table II. Comparison of PPO and Carrot-Following results
 | SD | CF | 0.47 | 0.002 | 0.002 | 0.001 | 0.001 | 0.005 |
 |  | PPO | 0.04 | 0.001 | 0.001 | 0.001 | 0.000 | 0.000 |
 
-In terms of completion time, PPO achieves a mean value of 16.91 s, compared with 24.63 s for CF, corresponding to a difference of approximately 31.3% under the controller configurations used. Because the two methods do not employ the same speed-magnitude limit, this result reflects only the completion times of the implemented configurations and should not be interpreted as a speed-normalized comparison. In terms of trajectory-tracking accuracy, PPO achieves a mean RMSE of 0.082 m and a mean MAE of 0.072 m, lower than the corresponding CF values of 0.198 m and 0.194 m; the respective reductions are approximately 58.6% and 62.9%. A similar trend is observed on each axis: the PPO RMSE_x, RMSE_y, and RMSE_z values are 0.053, 0.047, and 0.041 m, respectively, compared with 0.131, 0.133, and 0.065 m for CF. The corresponding reductions are approximately 59.5%, 64.7%, and 36.9%. Under the investigated conditions, PPO therefore maintains lower tracking errors than CF along all three axes.
+Mean completion times were 16.91 s for PPO and 24.63 s for CF, corresponding to a 31.3% difference under the implemented controller configurations. This numerical comparison is retained because it describes the observed task durations, but its interpretation is limited by the different speed specifications. CF retained a 1.5-m/s reference magnitude, while the learned controller generated independently bounded velocity components. The result is therefore not a speed-normalized comparison and cannot attribute the entire difference to the controller type.
 
-In addition to the mean values, the standard deviations over ten trials indicate low variability in the PPO metrics. The standard deviation of completion time is 0.04 s for PPO, compared with 0.47 s for CF; the standard deviations of the PPO RMSE and MAE are both 0.001 m, whereas those of CF are 0.002 m. The standard-deviation values are rounded to the number of digits displayed in the table; consequently, values shown as 0.000 should not be interpreted as indicating absolutely zero variability across runs.
+For geometric trajectory deviation, PPO achieved mean root-mean-square and mean absolute errors of 0.082 and 0.072 m, compared with 0.198 and 0.194 m for CF. These values correspond to reductions of 58.6% and 62.9% under the tested configuration. The same trend appears in the individual axes. PPO's root-mean-square errors in the $x$, $y$, and $z$ directions were 0.053, 0.047, and 0.041 m, respectively, compared with 0.131, 0.133, and 0.065 m for CF. The corresponding reductions were 59.5%, 64.7%, and 36.9%. Because the reference point for each sample is the closest point on the waypoint polyline, these values quantify spatial proximity to the trajectory geometry; they do not measure whether the vehicle and a timed reference reached corresponding locations simultaneously.
+
+Across ten fixed-controller evaluations, the completion-time standard deviation was 0.04 s for PPO and 0.47 s for CF. Root-mean-square and mean absolute error standard deviations were 0.001 m for PPO and 0.002 m for CF. These values describe nominal repeated execution, not independently trained policies. Values displayed as 0.000 after rounding do not imply exactly zero variation.
 
 2.  **Discussion**
 
-PPO’s lower tracking errors may be associated with its state representation: the current-waypoint error defines the immediate target, while the next-waypoint error indicates the upcoming path direction. This information may help reduce deviations during waypoint transitions. On the helical trajectory, mean RMSE and MAE were 0.082 and 0.072 m for PPO, versus 0.198 and 0.194 m for CF. Without an ablation excluding next-waypoint information, however, its individual contribution cannot be quantified.
+The lower geometric errors obtained by PPO may be associated with the information included in its state representation. The current-waypoint error identifies the immediate target, while the next-waypoint error provides information about the upcoming segment. This combination can make a change in local trajectory direction observable before the current target is completed. Nevertheless, the complete state was used throughout training and evaluation. Without an otherwise identical experiment that removes the next-waypoint components, the specific contribution of those inputs cannot be separated from the effects of the remaining state variables, the reward, and the learned policy.
 
-The reward design may also support tracking. Alongside completion and safety terms, the waypoint-approach reward encourages decreasing target distance and the velocity-alignment reward promotes target-directed motion. These continuous terms provide feedback before waypoint completion and reduce reward sparsity. The experiments assess the complete formulation; the contribution of each term requires an ablation study.
+The approach and alignment rewards provide feedback between discrete waypoint completions. The first is positive when the target distance decreases from one step to the next, and the second is positive when the current velocity has a component toward the waypoint. Together, they make task-related feedback available more frequently than a completion-only formulation. The experiment, however, evaluates only the complete four-term reward. No training runs remove or rescale individual terms, so their separate contributions and the sensitivity to the fixed coefficients remain unquantified.
 
-The lower PPO tracking errors are accompanied by larger roll and pitch variations during direction changes (Fig. 7), suggesting a trade-off between tracking performance and motion smoothness. PPO generates three independently bounded velocity components, whereas CF directs a fixed-magnitude velocity vector toward the carrot point. These differences may partly explain the attitude responses, but no dedicated command-smoothness or attitude-variation metrics were computed. The interpretation therefore remains observational; future evaluation should quantify command variation or attitude rates.
+Lower PPO trajectory deviation coincided with larger visible roll and pitch variations, suggesting a possible trade-off between spatial tracking and motion smoothness. The learned controller generated three independently bounded velocity components, whereas CF directed a fixed-magnitude velocity vector toward a look-ahead point. The controllers also progressed at different rates, which can affect the attitude changes needed to redirect the vehicle. These distinctions offer plausible context for the plotted responses but do not establish a causal explanation. No command-variation, attitude-rate, or smoothness metric was computed, so the comparison remains observational.
 
-Velocity constraints also differ: CF uses a fixed speed magnitude of 1.5 m/s, while each PPO command component lies within \[−3, 3\] m/s. The mean completion times of 16.91 s and 24.63 s therefore describe the implemented configurations and do not establish an intrinsic PPO speed advantage. Equivalent velocity constraints are needed to isolate the control strategy’s effect on completion time.
+The training objective itself also affects the interpretation of task duration. The 400-step episode limit bounds the available time, and the final-waypoint reward increases with the number of remaining steps. The learned policy is therefore explicitly encouraged to complete the sequence early. Combined with CF's fixed 1.5-m/s reference speed and the learned policy's independently bounded components, these design choices prevent attribution of the completion-time difference to Proximal Policy Optimization alone. A controlled timing comparison would require equivalent speed constraints and a protocol that separates the effect of the learned objective from the effect of the guidance strategy.
 
-Evaluation is limited to ProjectAirSim, one helical trajectory, and no explicitly introduced wind or model uncertainty. The repeated trials assess the fixed post-training controller in one scenario, not variability across PPO training seeds. The results support the framework’s feasibility rather than general superiority over conventional methods. Further evaluation should include different trajectory geometries, disturbances, model uncertainties, equivalent velocity constraints, and physical-quadcopter tests.
+Evaluation was limited to ProjectAirSim, one helical trajectory, one fixed set of learned weights, and a nominal configuration without explicitly introduced wind, sensor noise, delay, or model uncertainty. The repeated trials do not cover alternative trajectory shapes, payloads, vehicle parameters, disturbance levels, or training seeds. In addition, the trajectory-deviation metric is geometric rather than time-parameterized, and no physical-quadcopter experiment was conducted. Accordingly, the results support the feasibility of high-level learned velocity guidance for waypoint trajectory tracking in this specific scenario. They do not establish general superiority over conventional methods, robustness to unmodelled conditions, or effectiveness on a real vehicle.
 
 # CONCLUSION
 
-This paper developed and evaluated a Proximal Policy Optimization (PPO) agent for quadcopter waypoint-trajectory tracking in the ProjectAirSim environment. The agent uses a 15-dimensional state vector, comprising the quadcopter motion state and relative errors to the current and next waypoints, to generate velocity commands along the three axes of the North–East–Down frame. The reward function consists of four components that promote waypoint completion, discourage unsafe states, encourage progress toward the target, and maintain the velocity direction toward the waypoint.
+This study developed and evaluated a Proximal Policy Optimization controller for waypoint trajectory tracking control of a quadcopter in ProjectAirSim. The controller used a fifteen-dimensional state combining vehicle motion and attitude with relative errors to the current and next waypoints. It generated velocity commands along the three North–East–Down axes, while the simulator's built-in flight controller executed the low-level stabilization. The reward represented waypoint completion, unsafe termination, progress toward the current target, and velocity alignment.
 
-After 500,000 training interaction steps, the PPO weights were fixed and evaluated on a helical trajectory consisting of 40 waypoints. The Carrot-Following (CF) algorithm was used as the reference method; both methods were tested on the same trajectory, with the same quadcopter configuration and simulation environment, using ten repeated evaluation runs for each method.
+After 500,000 interaction steps, the learned weights were fixed. The resulting controller and Carrot-Following were each evaluated ten times on the same forty-waypoint helical trajectory, quadcopter configuration, and nominal simulation environment. Both controllers completed the prescribed waypoint sequence. These repeated trials characterize the behavior of the fixed controller configurations in the selected trajectory tracking scenario rather than variation across independently trained policies.
 
-The results show that both PPO and CF complete the prescribed trajectory. PPO achieves a mean completion time of 16.91 s compared with 24.63 s for CF; however, because CF uses a fixed reference speed of 1.5 m/s while PPO allows each velocity-command component to reach 3 m/s, the completion-time difference reflects the adopted controller configurations rather than a comparison under identical velocity limits. In terms of tracking accuracy, PPO achieves mean RMSE and MAE values of 0.082 and 0.072 m, respectively, corresponding to reductions of 58.6% and 62.9% relative to CF under the investigated conditions. The PPO RMSE values along the x, y, and z axes are 0.053, 0.047, and 0.041 m, respectively.
+Proximal Policy Optimization achieved a mean completion time, geometric trajectory-deviation root-mean-square error, and mean absolute error of 16.91 s, 0.082 m, and 0.072 m, respectively, compared with 24.63 s, 0.198 m, and 0.194 m for Carrot-Following. The learned controller therefore maintained smaller geometric deviations from the waypoint trajectory under the tested configurations. However, the completion-time comparison was not speed-normalized because Carrot-Following used a fixed reference-speed magnitude of 1.5 m/s, whereas the learned controller could issue larger commands within the common component-wise bounds. Moreover, the error metrics measure distance to the waypoint polyline rather than synchronization with a time-parameterized reference trajectory.
 
-In addition to the lower tracking errors, the PPO metrics exhibit low variability over the ten trials. However, the PPO roll and pitch responses vary more strongly than those of CF at several direction-change instants along the helical trajectory, indicating that tracking accuracy and response speed should be considered together with motion smoothness.
+The learned controller produced larger roll and pitch variations during direction changes. Its lower geometric trajectory deviation therefore did not correspond to the smoothest visible attitude response. The low standard deviations in the reported metrics describe repeated evaluations of the fixed controllers and should not be interpreted as evidence of low sensitivity to the policy-training process.
 
-Overall, within the investigated simulation environment and scenarios, the results demonstrate the feasibility of a PPO policy that generates high-level velocity commands for waypoint-trajectory tracking. Future work should evaluate the policy on a wider range of trajectories and disturbance conditions, consider equivalent velocity-limit configurations for the compared methods, and incorporate criteria related to control-command smoothness and attitude response.
+Overall, the results support the feasibility of Proximal Policy Optimization for high-level waypoint trajectory tracking control in the investigated ProjectAirSim scenario. This conclusion is limited to one helical trajectory, nominal simulation conditions, unmatched operating speeds, and one fixed set of learned weights. The absence of hardware experiments, reward and state ablations, disturbance tests, and multi-seed training evaluation prevents broader claims of robustness, real-world effectiveness, or general superiority. Further work should evaluate additional waypoint trajectories and disturbances, use equivalent speed constraints, quantify command and attitude smoothness, repeat training with multiple seeds, and validate the controller on a physical quadcopter.
 
 # REFERENCES
 
 1.  M. F. Ahmed, J. C. Mohanta, and M. N. Zafar, “Development of smart quadcopter for autonomous overhead power transmission line inspections,” Mater. Today Proc., vol. 51, pp. 261–268, 2022, doi: 10.1016/j.matpr.2021.05.271.
 
-2.  K. Karam, A. Mansour, M. Khaldi, B. Clement, and M. Ammad Uddin, “Quadcopters in Smart Agriculture: Applications and Modelling,” Appl. Sci., vol. 14, no. 19, Art. no. 9132, Oct. 2024, doi: 10.3390/app14199132.
+2.  I. Martinez-Alpiste, G. Golcarenarenji, Q. Wang, and J. M. Alcaraz Calero, “Search and rescue operation using UAVs: A case study,” Expert Syst. Appl., vol. 178, Art. no. 114937, Sep. 2021, doi: 10.1016/j.eswa.2021.114937.
 
-3.  I. Martinez-Alpiste, G. Golcarenarenji, Q. Wang, and J. M. Alcaraz Calero, “Search and rescue operation using UAVs: A case study,” Expert Syst. Appl., vol. 178, Art. no. 114937, Sep. 2021, doi: 10.1016/j.eswa.2021.114937.
+3.  M. A. Abitha and A. Saleem, “Quadrotor Modeling Approaches and Trajectory Tracking Control Algorithms: A Review,” International Journal of Robotics and Control Systems, vol. 4, no. 1, pp. 401–426, Apr. 2024, doi: 10.31763/ijrcs.v4i1.1324.
 
-4.  M. A. Abitha and A. Saleem, “Quadrotor Modeling Approaches and Trajectory Tracking Control Algorithms: A Review,” International Journal of Robotics and Control Systems, vol. 4, no. 1, pp. 401–426, Apr. 2024, doi: 10.31763/ijrcs.v4i1.1324.
+4.  M. Rabah, A. Rohan, Y.-J. Han, and S.-H. Kim, “Design of Fuzzy-PID Controller for Quadcopter Trajectory-Tracking,” International Journal of Fuzzy Logic and Intelligent Systems, vol. 18, no. 3, pp. 204–213, Sep. 2018, doi: 10.5391/IJFIS.2018.18.3.204.
 
-5.  A. Abdulkareem, V. Oguntosin, O. M. Popoola, and A. A. Idowu, “Modeling and Nonlinear Control of a Quadcopter for Stabilization and Trajectory Tracking,” J. Eng., vol. 2022, pp. 1–19, Oct. 2022, doi: 10.1155/2022/2449901.
+5.  D. Rodriguez-Guevara, A. Favela-Contreras, and O. J. Gonzalez Villarreal, “A qLPV-MPC Control Strategy for Trajectory Tracking of Quadrotors,” Machines, vol. 11, no. 7, Art. no. 755, Jul. 2023, doi: 10.3390/machines11070755.
 
-6.  M. Rabah, A. Rohan, Y.-J. Han, and S.-H. Kim, “Design of Fuzzy-PID Controller for Quadcopter Trajectory-Tracking,” International Journal of Fuzzy Logic and Intelligent Systems, vol. 18, no. 3, pp. 204–213, Sep. 2018, doi: 10.5391/IJFIS.2018.18.3.204.
+6.  D. J. Almakhles, “Robust Backstepping Sliding Mode Control for a Quadrotor Trajectory Tracking Application,” IEEE Access, vol. 8, pp. 5515–5525, 2020, doi: 10.1109/ACCESS.2019.2962722.
 
-7.  L. Martins, C. Cardeira, and P. Oliveira, “Linear Quadratic Regulator for Trajectory Tracking of a Quadrotor,” IFAC-PapersOnLine, vol. 52, no. 12, pp. 176–181, 2019, doi: 10.1016/j.ifacol.2019.11.195.
+7.  P. Caffyn Yuste, J. A. Iglesias Martínez, and M. A. Sanchis De Miguel, “Simulation-based evaluation of model-free reinforcement learning algorithms for quadcopter attitude control and trajectory tracking,” Neurocomputing, vol. 608, Art. no. 128362, Dec. 2024, doi: 10.1016/j.neucom.2024.128362.
 
-8.  D. Rodriguez-Guevara, A. Favela-Contreras, and O. J. Gonzalez Villarreal, “A qLPV-MPC Control Strategy for Trajectory Tracking of Quadrotors,” Machines, vol. 11, no. 7, Art. no. 755, Jul. 2023, doi: 10.3390/machines11070755.
+8.  T. Y. Trad et al., “Real-Time Implementation of Quadrotor UAV Control System Based on a Deep Reinforcement Learning Approach,” Comput. Mater. Continua, vol. 81, no. 3, pp. 4757–4786, 2024, doi: 10.32604/cmc.2024.055634.
 
-9.  D. J. Almakhles, “Robust Backstepping Sliding Mode Control for a Quadrotor Trajectory Tracking Application,” IEEE Access, vol. 8, pp. 5515–5525, 2020, doi: 10.1109/ACCESS.2019.2962722.
+9.  J. Wu, Z. Yang, L. Liao, N. He, Z. Wang, and C. Wang, “A State Compensated Deep Deterministic Policy Gradient Algorithm for UAV Trajectory Tracking,” Machines, vol. 10, no. 7, Art. no. 496, Jun. 2022, doi: 10.3390/machines10070496.
 
-10. E. J. J. Smeur, G. C. H. E. De Croon, and Q. Chu, “Cascaded incremental nonlinear dynamic inversion for MAV disturbance rejection,” Control Eng. Pract., vol. 73, pp. 79–90, Apr. 2018, doi: 10.1016/j.conengprac.2018.01.003.
+10. Y. Mahran, Z. Gamal, and A. El-Badawy, “Reinforcement Learning Position Control of a Quadrotor Using Soft Actor-Critic (SAC),” in Proc. 6th Novel Intell. Leading Emerging Sci. Conf. (NILES), Oct. 2024, pp. 72–75, doi: 10.1109/NILES63360.2024.10753187.
 
-11. Q. N. Duong and N. T. Dang, “Model-free Optimal Control for Underactuated Quadrotor Aircraft via Reinforcement Learning,” Journal of Robotics and Control (JRC), vol. 5, no. 6, pp. 1827–1835, Sep. 2024, doi: 10.18196/jrc.v5i6.23585.
+11. J. Schulman, F. Wolski, P. Dhariwal, A. Radford, and O. Klimov, “Proximal Policy Optimization Algorithms,” arXiv:1707.06347, Jul. 2017.
 
-12. P. Caffyn Yuste, J. A. Iglesias Martínez, and M. A. Sanchis De Miguel, “Simulation-based evaluation of model-free reinforcement learning algorithms for quadcopter attitude control and trajectory tracking,” Neurocomputing, vol. 608, Art. no. 128362, Dec. 2024, doi: 10.1016/j.neucom.2024.128362.
+12. IAMAI Consulting Corp., “Project AirSim,” GitHub repository. [Online]. Available: https://github.com/iamaisim/ProjectAirSim. [Accessed: Nov. 10, 2026].
 
-13. T. Y. Trad et al., “Real-Time Implementation of Quadrotor UAV Control System Based on a Deep Reinforcement Learning Approach,” Comput. Mater. Continua, vol. 81, no. 3, pp. 4757–4786, 2024, doi: 10.32604/cmc.2024.055634.
+13. M. Towers et al., “Gymnasium: A Standard Interface for Reinforcement Learning Environments,” arXiv:2407.17032, Jul. 2024, doi: 10.48550/arXiv.2407.17032.
 
-14. J. Wu, Z. Yang, L. Liao, N. He, Z. Wang, and C. Wang, “A State Compensated Deep Deterministic Policy Gradient Algorithm for UAV Trajectory Tracking,” Machines, vol. 10, no. 7, Art. no. 496, Jun. 2022, doi: 10.3390/machines10070496.
+14. H. Pérez-León, J. J. Acevedo, J. A. Millán-Romera, A. Castillejo-Calle, I. Maza, and A. Ollero, “An Aerial Robot Path Follower Based on the ‘Carrot Chasing’ Algorithm,” in Robot 2019: Fourth Iberian Robotics Conference, Advances in Intelligent Systems and Computing, vol. 1093, Springer, 2020, pp. 37–47, doi: 10.1007/978-3-030-36150-1_4.
 
-15. H. Liu, S. Suzuki, W. Wang, H. Liu, and Q. Wang, “Robust Control Strategy for Quadrotor Drone Using Reference Model-Based Deep Deterministic Policy Gradient,” Drones, vol. 6, no. 9, Art. no. 251, Sep. 2022, doi: 10.3390/drones6090251.
-
-16. Y. Mahran, Z. Gamal, and A. El-Badawy, “Reinforcement Learning Position Control of a Quadrotor Using Soft Actor-Critic (SAC),” in Proc. 6th Novel Intell. Leading Emerging Sci. Conf. (NILES), Oct. 2024, pp. 72–75, doi: 10.1109/NILES63360.2024.10753187.
-
-17. T. P. Lillicrap et al., “Continuous Control with Deep Reinforcement Learning,” in Proc. Int. Conf. Learn. Represent. (ICLR), San Juan, Puerto Rico, May 2016.
-
-18. S. Fujimoto, H. van Hoof, and D. Meger, “Addressing Function Approximation Error in Actor-Critic Methods,” in Proc. 35th Int. Conf. Mach. Learn. (ICML), Stockholm, Sweden, Jul. 2018, pp. 1587–1596.
-
-19. T. Haarnoja, A. Zhou, P. Abbeel, and S. Levine, “Soft Actor-Critic: Off-Policy Maximum Entropy Deep Reinforcement Learning with a Stochastic Actor,” in Proc. 35th Int. Conf. Mach. Learn. (ICML), Stockholm, Sweden, Jul. 2018, pp. 1861–1870.
-
-20. J. Schulman, F. Wolski, P. Dhariwal, A. Radford, and O. Klimov, “Proximal Policy Optimization Algorithms,” arXiv:1707.06347, Jul. 2017.
-
-21. H. Pérez-León, J. J. Acevedo, J. A. Millán-Romera, A. Castillejo-Calle, I. Maza, and A. Ollero, “An Aerial Robot Path Follower Based on the ‘Carrot Chasing’ Algorithm,” in Robot 2019: Fourth Iberian Robotics Conference, Advances in Intelligent Systems and Computing, vol. 1092, Springer, 2020, pp. 37–47.
-
-22. K. J. Åström and T. Hägglund, *PID Controllers: Theory, Design, and Tuning*, 2nd ed. Research Triangle Park, NC, USA: ISA, 1995.
-
-23. IAMAI Consulting Corp., “Project AirSim,” GitHub repository. [Online]. Available: https://github.com/iamaisim/ProjectAirSim. [Accessed: Nov. 10, 2026].
-
-24. M. Towers et al., “Gymnasium: A Standard Interface for Reinforcement Learning Environments,” arXiv:2407.17032, Jul. 2024, doi: 10.48550/arXiv.2407.17032.
-
-25. J. Schulman, P. Moritz, S. Levine, M. I. Jordan, and P. Abbeel, “High-Dimensional Continuous Control Using Generalized Advantage Estimation,” in Proc. Int. Conf. Learn. Represent. (ICLR), 2016.
+15. J. Schulman, P. Moritz, S. Levine, M. I. Jordan, and P. Abbeel, “High-Dimensional Continuous Control Using Generalized Advantage Estimation,” in Proc. Int. Conf. Learn. Represent. (ICLR), 2016.
